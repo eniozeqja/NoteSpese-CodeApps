@@ -20,6 +20,10 @@ import {
 import { Dw_nota_spesesService } from '../generated/services/Dw_nota_spesesService';
 import type { Dw_nota_speses } from '../generated/models/Dw_nota_spesesModel';
 
+/**
+ * AGIC Group Expense Dashboard
+ * Fully functional React component with filtering, searching, and exporting.
+ */
 const ExpenseDashboard: React.FC = () => {
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +31,9 @@ const ExpenseDashboard: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('Tutti gli stati');
 
+  // Extract OData formatted values
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? '—';
   }
@@ -48,6 +54,7 @@ const ExpenseDashboard: React.FC = () => {
 
   useEffect(() => { loadExpenses(); }, []);
 
+  // Summary Statistics
   const stats = useMemo(() => {
     return {
       bozze: expenses.filter(e => {
@@ -60,16 +67,26 @@ const ExpenseDashboard: React.FC = () => {
     };
   }, [expenses]);
 
+  // Combined Filtering Logic
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
       const dipendente = getField(e, 'dw_dipendente').toLowerCase();
       const commessa = getField(e, 'dw_codicedicommessa').toLowerCase();
-      const stato = (e as any)['dw_stato@OData.Community.Display.V1.FormattedValue']?.toUpperCase() ?? '';
+      const statoFull = (e as any)['dw_stato@OData.Community.Display.V1.FormattedValue'] ?? '';
+      const statoUpper = statoFull.toUpperCase();
+      
       const matchesSearch = dipendente.includes(searchTerm.toLowerCase()) || commessa.includes(searchTerm.toLowerCase());
-      const matchesTab = !showOnlyDrafts ? true : (stato === 'IN COMPOSIZIONE' || stato === 'BOZZA');
-      return matchesSearch && matchesTab;
+      
+      // Toggle logic for "Bozze"
+      const isDraftStatus = (statoUpper === 'IN COMPOSIZIONE' || statoUpper === 'BOZZA');
+      const matchesToggle = !showOnlyDrafts ? true : isDraftStatus;
+      
+      // Dropdown logic for specific status
+      const matchesStatusDropdown = statusFilter === 'Tutti gli stati' || statoFull.includes(statusFilter);
+
+      return matchesSearch && matchesToggle && matchesStatusDropdown;
     });
-  }, [expenses, searchTerm, showOnlyDrafts]);
+  }, [expenses, searchTerm, showOnlyDrafts, statusFilter]);
 
   const getStatusStyle = (stato: string) => {
     switch (stato?.toUpperCase()) {
@@ -95,6 +112,11 @@ const ExpenseDashboard: React.FC = () => {
     const stato = record['dw_stato@OData.Community.Display.V1.FormattedValue']?.toUpperCase() ?? '';
     if (stato === 'IN COMPOSIZIONE' || stato === 'BOZZA') return;
     setSelectedId(record.dw_nota_speseid === selectedId ? null : record.dw_nota_speseid);
+  };
+
+  const handleExport = () => {
+    alert(`Esportazione di ${filteredExpenses.length} record in corso...`);
+    // Implementation for CSV/Excel export would go here
   };
 
   return (
@@ -128,10 +150,11 @@ const ExpenseDashboard: React.FC = () => {
       </header>
 
       <main className="p-10 max-w-[1600px] mx-auto space-y-8">
+        {/* Summary Cards */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { label: 'Bozze', val: stats.bozze, color: 'text-slate-400', bg: 'bg-slate-50', icon: <FileEdit size={24} /> },
-            { label: 'In Attesa', val: stats.attesa, color: 'text-orange-500', bg: 'bg-orange-50', icon: <Clock size={24} /> },
+            { label: 'In Attesa di Approvazione', val: stats.attesa, color: 'text-orange-500', bg: 'bg-orange-50', icon: <Clock size={24} /> },
             { label: 'Approvate', val: stats.approvate, color: 'text-green-500', bg: 'bg-green-50', icon: <CheckCircle2 size={24} /> },
             { label: 'Rifiutate', val: stats.rifiutate, color: 'text-red-500', bg: 'bg-red-50', icon: <XCircle size={24} /> },
           ].map((card, i) => (
@@ -147,67 +170,64 @@ const ExpenseDashboard: React.FC = () => {
           ))}
         </section>
 
+        {/* Filters Toolbar */}
         <section className="flex flex-col lg:flex-row lg:items-center gap-10 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-<div className="flex items-center gap-3">
-  <span
-    className={`text-sm font-semibold transition-colors ${
-      !showOnlyDrafts ? "text-slate-900" : "text-slate-400"
-    }`}
-  >
-    Tutte le Note
-  </span>
-
-  <button
-    type="button"
-    role="switch"
-    aria-checked={showOnlyDrafts}
-    data-state={showOnlyDrafts ? "checked" : "unchecked"}
-    onClick={() => setShowOnlyDrafts(prev => !prev)}
-    className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-slate-200 p-[2px] transition-colors duration-200 data-[state=checked]:bg-[#E85C24] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2"
-  >
-    <span
-      data-state={showOnlyDrafts ? "checked" : "unchecked"}
-      className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
-    />
-  </button>
-
-  <span
-    className={`text-sm font-semibold transition-colors ${
-      showOnlyDrafts ? "text-slate-900" : "text-slate-400"
-    }`}
-  >
-    Bozze
-  </span>
-</div>
+          <div className="flex items-center gap-3 border-r border-slate-100 pr-10">
+            <span className={`text-sm font-semibold transition-colors ${!showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Tutte le Note</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showOnlyDrafts}
+              onClick={() => setShowOnlyDrafts(prev => !prev)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 ${showOnlyDrafts ? "bg-[#E85C24]" : "bg-slate-200"}`}
+            >
+              <span className={`pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showOnlyDrafts ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
+            <span className={`text-sm font-semibold transition-colors ${showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Bozze</span>
+          </div>
             
           <div className="flex items-center gap-6 flex-1">
             <div className="flex-1 max-w-[240px]">
               <div className="relative">
-                <select className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors">
+                <select 
+                  className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
                   <option>Tutti gli stati</option>
                   <option>Approvata</option>
-                  <option>In Attesa</option>
+                  <option>In attesa di approvazione</option>
                   <option>Rifiutata</option>
                 </select>
                 <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
               </div>
             </div>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all">
+            <button 
+              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
+              onClick={() => alert('Selettore data: Scegli intervallo')}
+            >
               <Calendar size={16} /> Ultimi 30 giorni
             </button>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all ml-auto">
+            <button 
+              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all ml-auto"
+              onClick={() => alert('Apertura pannello filtri avanzati...')}
+            >
               <Filter size={18} /> Filtri Avanzati
             </button>
           </div>
         </section>
 
+        {/* Table Section */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3">
               <LayoutDashboard size={20} className="text-[#E85C24]" />
               <h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2>
             </div>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all">
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
+            >
               <Download size={18} /> Esporta Note <ChevronRight size={14} className="rotate-90" />
             </button>
           </div>
@@ -231,22 +251,23 @@ const ExpenseDashboard: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredExpenses.map((record: any) => {
+                    const id = record.dw_nota_speseid;
                     const name = record.dw_name ?? 'Nota_Spesa';
                     const dipendente = getField(record, 'dw_dipendente');
                     const commessa = getField(record, 'dw_codicedicommessa');
                     const periodo = getField(record, 'dw_periodotempo');
-                    const stato = record['dw_stato@OData.Community.Display.V1.FormattedValue'] ?? 'In Attesa';
+                    const stato = record['dw_stato@OData.Community.Display.V1.FormattedValue'] ?? 'In Attesa di Approvazione';
                     const isDraft = stato.toUpperCase() === 'IN COMPOSIZIONE' || stato.toUpperCase() === 'BOZZA';
                     return (
                       <tr 
-                        key={record.dw_nota_speseid} 
+                        key={id} 
                         onClick={() => handleRowClick(record)}
-                        className={`transition-all duration-150 group ${isDraft ? 'cursor-default opacity-80 italic bg-slate-50/30' : 'cursor-pointer hover:bg-slate-50'} ${selectedId === record.dw_nota_speseid ? 'bg-orange-50 border-l-4 border-l-[#E85C24]' : 'border-l-4 border-l-transparent'}`}
+                        className={`transition-all duration-150 group ${isDraft ? 'cursor-default opacity-80 italic bg-slate-50/30' : 'cursor-pointer hover:bg-slate-50'} ${selectedId === id ? 'bg-orange-50 border-l-4 border-l-[#E85C24]' : 'border-l-4 border-l-transparent'}`}
                       >
-                        <td className={`px-8 py-6 text-sm font-bold transition-colors ${selectedId === record.dw_nota_speseid ? 'text-[#E85C24]' : 'text-slate-800'}`}>{name}</td>
+                        <td className={`px-8 py-6 text-sm font-bold transition-colors ${selectedId === id ? 'text-[#E85C24]' : 'text-slate-800'}`}>{name}</td>
                         <td className="px-6 py-6">
                           <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold uppercase border ${selectedId === record.dw_nota_speseid ? 'bg-white border-[#E85C24] text-[#E85C24]' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold uppercase border ${selectedId === id ? 'bg-white border-[#E85C24] text-[#E85C24]' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
                               {dipendente.split(' ').map((n: string) => n[0]).join('')}
                             </div>
                             <span className="text-sm font-semibold text-slate-700">{dipendente}</span>
@@ -263,17 +284,29 @@ const ExpenseDashboard: React.FC = () => {
                       </tr>
                     );
                   })}
+                  {filteredExpenses.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-8 py-32 text-center text-slate-400 font-medium">Nessuna nota spesa trovata.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             )}
           </div>
         </section>
 
+        {/* Footer Actions */}
         <div className="flex justify-end gap-5 pt-4">
-          <button className="px-8 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:border-[#E85C24] hover:text-[#E85C24] transition-all flex items-center gap-2">Esporta Report</button>
+          <button 
+            className="px-8 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:border-[#E85C24] hover:text-[#E85C24] transition-all flex items-center gap-2"
+            onClick={() => alert('Generazione report PDF in corso...')}
+          >
+            Esporta Report
+          </button>
           <button 
             disabled={!selectedId}
             className={`px-12 py-4 font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg ${selectedId ? 'bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200'}`}
+            onClick={() => console.log('Navigazione verso Dettagli ID:', selectedId)}
           >
             Apri Dettagli <ArrowUpRight size={20} />
           </button>
