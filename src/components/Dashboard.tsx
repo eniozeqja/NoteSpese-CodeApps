@@ -19,11 +19,43 @@ import {
 } from 'lucide-react';
 import { Dw_nota_spesesService } from '../generated/services/Dw_nota_spesesService';
 import type { Dw_nota_speses } from '../generated/models/Dw_nota_spesesModel';
+import { Dw_time_periodsService } from '@/generated/services/Dw_time_periodsService';
 
 /**
  * AGIC Group Expense Dashboard
  * Fully functional React component with filtering, searching, and exporting.
  */
+
+  function normalizeStartDate(dateInput: string | Date): Date {
+  const date = new Date(dateInput);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function normalizeEndDate(dateInput: string | Date): Date {
+  const date = new Date(dateInput);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function getCurrentTimePeriod(periods: any[]) {
+  const today = new Date();
+
+  return periods.find((period) => {
+    const start = normalizeStartDate(period.dw_periodoinizio);
+    const end = normalizeEndDate(period.dw_periodofine);
+
+    return today >= start && today <= end;
+  });
+}
+
+function isPeriodBeforeCurrent(period: any, currentPeriod: any): boolean {
+  const periodEnd = normalizeEndDate(period.dw_periodofine);
+  const currentStart = normalizeStartDate(currentPeriod.dw_periodoinizio);
+
+  return periodEnd < currentStart;
+}
+
 const ExpenseDashboard: React.FC = () => {
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +64,10 @@ const ExpenseDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
   const [statusFilter, setStatusFilter] = useState('Tutti gli stati');
+  const [periods, setPeriods] = useState<any[]>([]);
+  const [selectedPeriodId, setSelectedPeriodId] = useState("current");
 
+  
   // Extract OData formatted values
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? '—';
@@ -45,6 +80,11 @@ const ExpenseDashboard: React.FC = () => {
       const result = await Dw_nota_spesesService.getAll();
       const data = ((result as any)?.data ?? (result as any)?.value ?? []) as Dw_nota_speses[];
       setExpenses(data);
+
+      const periodsResult = await Dw_time_periodsService.getAll();
+      const periodsData = ((periodsResult as any)?.data ?? (periodsResult as any)?.value ?? []) as any[];
+      setPeriods(periodsData);
+
     } catch (err) {
       setError('Impossibile caricare le note spese.');
     } finally {
@@ -69,24 +109,72 @@ const ExpenseDashboard: React.FC = () => {
 
   // Combined Filtering Logic
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(e => {
-      const dipendente = getField(e, 'dw_dipendente').toLowerCase();
-      const commessa = getField(e, 'dw_codicedicommessa').toLowerCase();
-      const statoFull = (e as any)['dw_stato@OData.Community.Display.V1.FormattedValue'] ?? '';
-      const statoUpper = statoFull.toUpperCase();
-      
-      const matchesSearch = dipendente.includes(searchTerm.toLowerCase()) || commessa.includes(searchTerm.toLowerCase());
-      
-      // Toggle logic for "Bozze"
-      const isDraftStatus = (statoUpper === 'IN COMPOSIZIONE' || statoUpper === 'BOZZA');
-      const matchesToggle = !showOnlyDrafts ? true : isDraftStatus;
-      
-      // Dropdown logic for specific status
-      const matchesStatusDropdown = statusFilter === 'Tutti gli stati' || statoFull.includes(statusFilter);
+  const currentPeriod = getCurrentTimePeriod(periods);
 
-      return matchesSearch && matchesToggle && matchesStatusDropdown;
-    });
-  }, [expenses, searchTerm, showOnlyDrafts, statusFilter]);
+  return expenses.filter(e => {
+    const record = e as any;
+
+    const dipendente = getField(record, 'dw_dipendente').toLowerCase();
+    const commessa = getField(record, 'dw_codicedicommessa').toLowerCase();
+
+    const statoFull =
+      record['dw_stato@OData.Community.Display.V1.FormattedValue'] ?? '';
+
+    const statoUpper = statoFull.toUpperCase();
+
+    const matchesSearch =
+      dipendente.includes(searchTerm.toLowerCase()) ||
+      commessa.includes(searchTerm.toLowerCase());
+
+    const isDraftStatus =
+      statoUpper === 'IN COMPOSIZIONE' || statoUpper === 'BOZZA';
+
+    const matchesToggle = showOnlyDrafts
+      ? isDraftStatus
+      : !isDraftStatus;
+
+    const statusFilterUpper = statusFilter.toUpperCase();
+
+    const matchesStatusDropdown =
+      statusFilter === 'Tutti gli stati' ||
+      statoUpper === statusFilterUpper;
+
+    const notePeriodId = record._dw_periodotempo_value;
+
+    let matchesPeriod = true;
+
+    if (selectedPeriodId === 'current') {
+      matchesPeriod =
+        !!currentPeriod &&
+        notePeriodId === currentPeriod.dw_time_periodid;
+    } else if (selectedPeriodId === 'previous') {
+      matchesPeriod =
+        !!currentPeriod &&
+        periods.some(period =>
+          period.dw_time_periodid === notePeriodId &&
+          isPeriodBeforeCurrent(period, currentPeriod)
+        );
+    } else if (selectedPeriodId === 'all') {
+      matchesPeriod = true;
+    } else {
+      matchesPeriod = notePeriodId === selectedPeriodId;
+    }
+
+    return (
+      matchesSearch &&
+      matchesToggle &&
+      matchesStatusDropdown &&
+      matchesPeriod
+    );
+  });
+}, [
+  expenses,
+  periods,
+  searchTerm,
+  showOnlyDrafts,
+  statusFilter,
+  selectedPeriodId,
+]);
 
   const getStatusStyle = (stato: string) => {
     switch (stato?.toUpperCase()) {
@@ -202,12 +290,38 @@ const ExpenseDashboard: React.FC = () => {
                 <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
               </div>
             </div>
-            <button 
-              className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
-              onClick={() => alert('Selettore data: Scegli intervallo')}
-            >
-              <Calendar size={16} /> Ultimi 30 giorni
-            </button>
+<div className="relative">
+  <select
+    className="appearance-none px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
+    value={selectedPeriodId}
+    onChange={(e) => setSelectedPeriodId(e.target.value)}
+  >
+    <option value="current">Periodo corrente</option>
+    <option value="previous">Periodi precedenti</option>
+    <option value="all">Tutti i periodi</option>
+
+    {periods
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.dw_periodoinizio).getTime() -
+          new Date(a.dw_periodoinizio).getTime()
+      )
+      .map((period) => (
+        <option
+          key={period.dw_time_periodid}
+          value={period.dw_time_periodid}
+        >
+          {period.dw_name}
+        </option>
+      ))}
+  </select>
+
+  <Calendar
+    size={16}
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+  />
+</div>
             <button 
               className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all ml-auto"
               onClick={() => alert('Apertura pannello filtri avanzati...')}
