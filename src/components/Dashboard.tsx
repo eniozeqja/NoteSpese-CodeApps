@@ -20,22 +20,6 @@ import {
 import { Dw_nota_spesesService } from '../generated/services/Dw_nota_spesesService';
 import type { Dw_nota_speses } from '../generated/models/Dw_nota_spesesModel';
 
-/**
- * Corrected Radix Switch Component
- * Ensures the thumb starts on the left and slides to the right correctly.
- */
-// const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChange: (val: boolean) => void }) => (
-//   <SwitchPrimitive.Root
-//     checked={checked}
-//     onCheckedChange={onCheckedChange}
-//     className="peer relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[#E85C24] data-[state=unchecked]:bg-slate-200"
-//   >
-//     <SwitchPrimitive.Thumb
-//       className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
-//     />
-//   </SwitchPrimitive.Root>
-// );
-
 const ExpenseDashboard: React.FC = () => {
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
