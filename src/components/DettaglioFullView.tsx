@@ -1,7 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -37,6 +35,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
   const [detail, setDetail] = useState<Dw_detaglinotespesas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   const {
     attachmentUrl,
@@ -114,7 +113,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
   const receiptType = isImage ? "IMAGE" : isPdf ? "PDF" : "OTHER";
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20 relative">
       <header className="bg-white border-b border-slate-200 px-10 py-5 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-6">
           <button
@@ -237,9 +236,6 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
               Verifica la conformità dell'allegato alla policy aziendale AGIC Group.
             </p>
-            <button className="w-full py-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all border border-white/10">
-              Visualizza Policy Spese
-            </button>
           </div>
         </div>
 
@@ -293,7 +289,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
                   <p className="font-medium">Caricamento allegato...</p>
                 </div>
               ) : isImage && attachmentUrl ? (
-                <div className="relative max-w-full max-h-[700px] shadow-2xl rounded-lg overflow-hidden border-4 border-white">
+                <div className="relative max-w-full max-h-[700px] shadow-2xl rounded-lg overflow-hidden border-4 border-white cursor-pointer" onClick={() => setIsZoomed(true)}>
                   <img
                     src={attachmentUrl}
                     alt={fileName || "Receipt Full Preview"}
@@ -335,6 +331,26 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
           </div>
         </div>
       </main>
+
+      {/* Fullscreen Zoom Overlay */}
+      {isZoomed && isImage && attachmentUrl && (
+        <div 
+          className="fixed inset-0 z-[100] bg-slate-900/95 flex items-center justify-center p-10 cursor-zoom-out"
+          onClick={() => setIsZoomed(false)}
+        >
+          <img 
+            src={attachmentUrl} 
+            alt="Zoomed Receipt" 
+            className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
+          />
+          <button 
+            className="absolute top-10 right-10 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-all"
+            onClick={() => setIsZoomed(false)}
+          >
+            <Maximize2 size={24} className="rotate-45" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

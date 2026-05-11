@@ -17,6 +17,7 @@ import {
   FileEdit,
   ArrowUpRight,
 } from "lucide-react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { Dw_nota_spesesService } from "../generated/services/Dw_nota_spesesService";
 import type { Dw_nota_speses } from "../generated/models/Dw_nota_spesesModel";
 import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsService";
@@ -26,44 +27,19 @@ import DettagliDrawer from './DettagliDrawer';
 import DettaglioFullView from './DettaglioFullView';
 
 /**
- * Integrated AGIC Group Expense Dashboard
- * Fixed: Removed individual approval callbacks from DettaglioFullView to match new view-only implementation.
+ * Modern Radix-style Switch Component
  */
-
-function normalizeStartDate(dateInput: string | Date): Date {
-  const date = new Date(dateInput);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-function normalizeEndDate(dateInput: string | Date): Date {
-  const date = new Date(dateInput);
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
-function getCurrentTimePeriod(periods: any[]) {
-  const today = new Date();
-  return periods.find((period) => {
-    const start = normalizeStartDate(period.dw_periodoinizio);
-    const end = normalizeEndDate(period.dw_periodofine);
-    return today >= start && today <= end;
-  });
-}
-
-function isPeriodBeforeCurrent(period: any, currentPeriod: any): boolean {
-  const periodEnd = normalizeEndDate(period.dw_periodofine);
-  const currentStart = normalizeStartDate(currentPeriod.dw_periodoinizio);
-  return periodEnd < currentStart;
-}
-
-function escapeCsvValue(value: unknown): string {
-  const stringValue = String(value ?? "");
-  if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  }
-  return stringValue;
-}
+const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChange: (val: boolean) => void }) => (
+  <SwitchPrimitive.Root
+    checked={checked}
+    onCheckedChange={onCheckedChange}
+    className="peer relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[#E85C24] data-[state=unchecked]:bg-slate-200"
+  >
+    <SwitchPrimitive.Thumb
+      className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0"
+    />
+  </SwitchPrimitive.Root>
+);
 
 const ExpenseDashboard: React.FC = () => {
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
@@ -79,36 +55,6 @@ const ExpenseDashboard: React.FC = () => {
   // Navigation & Integration State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [fullDetailId, setFullDetailId] = useState<string | null>(null);
-
-  const handleApproveNota = async (notaSpesaId: string) => {
-  try {
-    await Dw_nota_spesesService.update(notaSpesaId, {
-      dw_stato: 121950002, // Approvata
-    });
-
-    setIsDrawerOpen(false);
-    setSelectedId(null);
-    await loadExpenses();
-  } catch (err) {
-    console.error("Errore approvazione Nota Spesa:", err);
-    alert("Impossibile approvare la Nota Spesa.");
-  }
-};
-
-const handleRejectNota = async (notaSpesaId: string) => {
-  try {
-    await Dw_nota_spesesService.update(notaSpesaId, {
-      dw_stato: 121950003, // Rifiutata
-    });
-
-    setIsDrawerOpen(false);
-    setSelectedId(null);
-    await loadExpenses();
-  } catch (err) {
-    console.error("Errore rifiuto Nota Spesa:", err);
-    alert("Impossibile rifiutare la Nota Spesa.");
-  }
-};
 
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
@@ -147,7 +93,15 @@ const handleRejectNota = async (notaSpesaId: string) => {
   }, [expenses]);
 
   const filteredExpenses = useMemo(() => {
-    const currentPeriod = getCurrentTimePeriod(periods);
+    const today = new Date();
+    const currentPeriod = periods.find((period) => {
+      const start = new Date(period.dw_periodoinizio);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(period.dw_periodofine);
+      end.setHours(23, 59, 59, 999);
+      return today >= start && today <= end;
+    });
+
     return expenses.filter((e) => {
       const record = e as any;
       const dipendente = getField(record, "dw_dipendente").toLowerCase();
@@ -160,12 +114,18 @@ const handleRejectNota = async (notaSpesaId: string) => {
       const statusFilterUpper = statusFilter.toUpperCase();
       const matchesStatusDropdown = statusFilter === "Tutti gli stati" || statoUpper === statusFilterUpper;
       const notePeriodId = record._dw_periodotempo_value;
+      
       let matchesPeriod = true;
-
       if (selectedPeriodId === "current") {
         matchesPeriod = !!currentPeriod && notePeriodId === currentPeriod.dw_time_periodid;
       } else if (selectedPeriodId === "previous") {
-        matchesPeriod = !!currentPeriod && periods.some(p => p.dw_time_periodid === notePeriodId && isPeriodBeforeCurrent(p, currentPeriod));
+        matchesPeriod = !!currentPeriod && periods.some(p => {
+            const pEnd = new Date(p.dw_periodofine);
+            pEnd.setHours(23, 59, 59, 999);
+            const cStart = new Date(currentPeriod.dw_periodoinizio);
+            cStart.setHours(0, 0, 0, 0);
+            return p.dw_time_periodid === notePeriodId && pEnd < cStart;
+        });
       } else if (selectedPeriodId === "all") {
         matchesPeriod = true;
       } else {
@@ -203,38 +163,106 @@ const handleRejectNota = async (notaSpesaId: string) => {
     setIsDrawerOpen(id !== selectedId);
   };
 
+const handleApproveNota = async (id: string) => {
+  try {
+    await Dw_nota_spesesService.update(id, {
+      dw_stato: 121950002, // Approvata
+    } as any);
+
+    setIsDrawerOpen(false);
+    setSelectedId(null);
+    await loadExpenses();
+  } catch (err) {
+    console.error("Errore durante l'approvazione:", err);
+    alert("Errore durante l'approvazione");
+  }
+};
+
+const handleRejectNota = async (id: string) => {
+  try {
+    await Dw_nota_spesesService.update(id, {
+      dw_stato: 121950003, // Rifiutata
+    } as any);
+
+    setIsDrawerOpen(false);
+    setSelectedId(null);
+    await loadExpenses();
+  } catch (err) {
+    console.error("Errore durante il rifiuto:", err);
+    alert("Errore durante il rifiuto");
+  }
+};
+
+  if (fullDetailId) {
+    return (
+      <DettaglioFullView 
+        detailId={fullDetailId} 
+        onBack={() => setFullDetailId(null)}
+      />
+    );
+  }
+
   const handleExport = () => {
-    if (filteredExpenses.length === 0) { alert("Nessuna nota spesa da esportare."); return; }
-    const rows = filteredExpenses.map((r: any) => ({
-      Nome: r.dw_name ?? "Nota_Spesa",
-      Dipendente: getField(r, "dw_dipendente"),
-      "Codice Commessa": getField(r, "dw_codicedicommessa"),
-      "Periodo Tempo": getField(r, "dw_periodotempo"),
-      Stato: r["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "",
-    }));
-    const headers = Object.keys(rows[0]);
-    const csvContent = [headers.join(","), ...rows.map(row => headers.map(h => escapeCsvValue(row[h as keyof typeof row])).join(","))].join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `note-spese-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  if (filteredExpenses.length === 0) {
+    alert("Nessuna nota spesa da esportare.");
+    return;
+  }
+
+  const rows = filteredExpenses.map((record: any) => {
+    const name = record.dw_name ?? "Nota_Spesa";
+    const dipendente = getField(record, "dw_dipendente");
+    const commessa = getField(record, "dw_codicedicommessa");
+    const periodo = getField(record, "dw_periodotempo");
+    const stato =
+      record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
+
+    return {
+      Nome: name,
+      Dipendente: dipendente,
+      "Codice Commessa": commessa,
+      "Periodo Tempo": periodo,
+      Stato: stato,
+    };
+  });
+
+  const headers = Object.keys(rows[0]);
+
+  const escapeCsvValue = (value: unknown) => {
+    const stringValue = String(value ?? "");
+
+    if (
+      stringValue.includes(",") ||
+      stringValue.includes('"') ||
+      stringValue.includes("\n")
+    ) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+
+    return stringValue;
   };
 
-  // Render Full Detail View if an item is selected from the drawer
-if (fullDetailId) {
-  return (
-    <DettaglioFullView
-      detailId={fullDetailId}
-      onBack={() => {
-        setFullDetailId(null);
-        setIsDrawerOpen(true);
-      }}
-    />
-  );
-}
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers
+        .map((header) => escapeCsvValue(row[header as keyof typeof row]))
+        .join(",")
+    ),
+  ].join("\n");
+
+  const blob = new Blob(["\uFEFF" + csvContent], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `note-spese-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+};
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-12">
@@ -267,7 +295,6 @@ if (fullDetailId) {
       </header>
 
       <main className="p-10 max-w-[1600px] mx-auto space-y-8">
-        {/* Summary Cards */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { label: "Bozze", val: stats.bozze, color: "text-slate-400", bg: "bg-slate-50", icon: <FileEdit size={24} /> },
@@ -283,13 +310,10 @@ if (fullDetailId) {
           ))}
         </section>
 
-        {/* Filters Toolbar */}
         <section className="flex flex-col lg:flex-row lg:items-center gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-6">
             <span className={`text-sm font-semibold transition-colors ${!showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Tutte le Note</span>
-            <button type="button" role="switch" aria-checked={showOnlyDrafts} onClick={() => setShowOnlyDrafts((prev) => !prev)} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 ${showOnlyDrafts ? "bg-[#E85C24]" : "bg-slate-200"}`}>
-              <span className={`pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showOnlyDrafts ? "translate-x-5" : "translate-x-0"}`} />
-            </button>
+            <Switch checked={showOnlyDrafts} onCheckedChange={setShowOnlyDrafts} />
             <span className={`text-sm font-semibold transition-colors ${showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Bozze</span>
           </div>
           <div className="flex items-center gap-6">
@@ -313,11 +337,16 @@ if (fullDetailId) {
           </div>
         </section>
 
-        {/* Table Section */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3"><LayoutDashboard size={20} className="text-[#E85C24]" /><h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2></div>
-            <button onClick={handleExport} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"><Download size={18} /> Esporta Note <ChevronRight size={14} className="rotate-90" /></button>
+            <button
+  onClick={handleExport}
+  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
+>
+  <Download size={18} /> Esporta Note{" "}
+  <ChevronRight size={14} className="rotate-90" />
+</button>
           </div>
           <div className="overflow-x-auto flex-1">
             {isLoading ? (<div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400"><Loader2 className="animate-spin text-[#E85C24]" size={40} /><p className="font-medium animate-pulse">Caricamento dati...</p></div>) : (
@@ -349,27 +378,23 @@ if (fullDetailId) {
         </section>
 
         <div className="flex justify-end gap-5 pt-4">
-          <button className="px-8 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:border-[#E85C24] hover:text-[#E85C24] transition-all flex items-center gap-2" onClick={() => alert("Generazione report PDF in corso...")}>Esporta Report</button>
           <button disabled={!selectedId} className={`px-12 py-4 font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg ${selectedId ? "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-200" : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"}`} onClick={() => setIsDrawerOpen(true)}>Apri Dettagli <ArrowUpRight size={20} /></button>
         </div>
       </main>
 
       {/* Slide-in Details Drawer */}
-<DettagliDrawer
-  isOpen={isDrawerOpen}
-  onClose={() => setIsDrawerOpen(false)}
-  notaSpesaId={selectedId}
-  notaSpesaName={
-    expenses.find((e) => e.dw_nota_speseid === selectedId)?.dw_name ||
-    "Nota Spesa"
-  }
-  onSelectDetail={(detailId) => {
-    setFullDetailId(detailId);
-    setIsDrawerOpen(false);
-  }}
-  onApproveNota={handleApproveNota}
-  onRejectNota={handleRejectNota}
-/>
+      <DettagliDrawer 
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        notaSpesaId={selectedId}
+        notaSpesaName={expenses.find(e => e.dw_nota_speseid === selectedId)?.dw_name || 'Nota Spesa'}
+        onSelectDetail={(detailId) => {
+          setFullDetailId(detailId);
+          setIsDrawerOpen(false);
+        }}
+        onApproveNota={handleApproveNota}
+        onRejectNota={handleRejectNota}
+      />
     </div>
   );
 };
