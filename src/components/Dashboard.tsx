@@ -21,9 +21,13 @@ import { Dw_nota_spesesService } from "../generated/services/Dw_nota_spesesServi
 import type { Dw_nota_speses } from "../generated/models/Dw_nota_spesesModel";
 import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsService";
 
+// Integrated Components
+import DettagliDrawer from './DettagliDrawer';
+import DettaglioFullView from './DettaglioFullView';
+
 /**
- * AGIC Group Expense Dashboard
- * Fully functional React component with filtering, searching, and exporting.
+ * Integrated AGIC Group Expense Dashboard
+ * Features: Dataverse connectivity, Period filtering, Multi-state Drawer, and Detail Full View.
  */
 
 function normalizeStartDate(dateInput: string | Date): Date {
@@ -40,11 +44,9 @@ function normalizeEndDate(dateInput: string | Date): Date {
 
 function getCurrentTimePeriod(periods: any[]) {
   const today = new Date();
-
   return periods.find((period) => {
     const start = normalizeStartDate(period.dw_periodoinizio);
     const end = normalizeEndDate(period.dw_periodofine);
-
     return today >= start && today <= end;
   });
 }
@@ -52,22 +54,14 @@ function getCurrentTimePeriod(periods: any[]) {
 function isPeriodBeforeCurrent(period: any, currentPeriod: any): boolean {
   const periodEnd = normalizeEndDate(period.dw_periodofine);
   const currentStart = normalizeStartDate(currentPeriod.dw_periodoinizio);
-
   return periodEnd < currentStart;
 }
 
 function escapeCsvValue(value: unknown): string {
   const stringValue = String(value ?? "");
-
-  // Escape quotes and wrap in quotes if needed
-  if (
-    stringValue.includes(",") ||
-    stringValue.includes('"') ||
-    stringValue.includes("\n")
-  ) {
+  if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
-
   return stringValue;
 }
 
@@ -82,11 +76,12 @@ const ExpenseDashboard: React.FC = () => {
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("current");
 
-  // Extract OData formatted values
+  // Navigation & Integration State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [fullDetailId, setFullDetailId] = useState<string | null>(null);
+
   function getField(record: any, field: string): string {
-    return (
-      record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—"
-    );
+    return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
   }
 
   const loadExpenses = async () => {
@@ -94,15 +89,11 @@ const ExpenseDashboard: React.FC = () => {
     setError(null);
     try {
       const result = await Dw_nota_spesesService.getAll();
-      const data = ((result as any)?.data ??
-        (result as any)?.value ??
-        []) as Dw_nota_speses[];
+      const data = ((result as any)?.data ?? (result as any)?.value ?? []) as Dw_nota_speses[];
       setExpenses(data);
 
       const periodsResult = await Dw_time_periodsService.getAll();
-      const periodsData = ((periodsResult as any)?.data ??
-        (periodsResult as any)?.value ??
-        []) as any[];
+      const periodsData = ((periodsResult as any)?.data ?? (periodsResult as any)?.value ?? []) as any[];
       setPeriods(periodsData);
     } catch (err) {
       setError("Impossibile caricare le note spese.");
@@ -111,191 +102,108 @@ const ExpenseDashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    loadExpenses();
-  }, []);
+  useEffect(() => { loadExpenses(); }, []);
 
-  // Summary Statistics
   const stats = useMemo(() => {
     return {
       bozze: expenses.filter((e) => {
-        const stato =
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() ?? "";
+        const stato = (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() ?? "";
         return stato === "IN COMPOSIZIONE" || stato === "BOZZA";
       }).length,
-      attesa: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "IN ATTESA DI APPROVAZIONE",
-      ).length,
-      approvate: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "APPROVATA",
-      ).length,
-      rifiutate: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "RIFIUTATA",
-      ).length,
+      attesa: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "IN ATTESA DI APPROVAZIONE").length,
+      approvate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "APPROVATA").length,
+      rifiutate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "RIFIUTATA").length,
     };
   }, [expenses]);
 
-  // Combined Filtering Logic
   const filteredExpenses = useMemo(() => {
     const currentPeriod = getCurrentTimePeriod(periods);
-
     return expenses.filter((e) => {
       const record = e as any;
-
       const dipendente = getField(record, "dw_dipendente").toLowerCase();
       const commessa = getField(record, "dw_codicedicommessa").toLowerCase();
-
-      const statoFull =
-        record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
-
+      const statoFull = record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
       const statoUpper = statoFull.toUpperCase();
-
-      const matchesSearch =
-        dipendente.includes(searchTerm.toLowerCase()) ||
-        commessa.includes(searchTerm.toLowerCase());
-
-      const isDraftStatus =
-        statoUpper === "IN COMPOSIZIONE" || statoUpper === "BOZZA";
-
+      const matchesSearch = dipendente.includes(searchTerm.toLowerCase()) || commessa.includes(searchTerm.toLowerCase());
+      const isDraftStatus = statoUpper === "IN COMPOSIZIONE" || statoUpper === "BOZZA";
       const matchesToggle = showOnlyDrafts ? isDraftStatus : !isDraftStatus;
-
       const statusFilterUpper = statusFilter.toUpperCase();
-
-      const matchesStatusDropdown =
-        statusFilter === "Tutti gli stati" || statoUpper === statusFilterUpper;
-
+      const matchesStatusDropdown = statusFilter === "Tutti gli stati" || statoUpper === statusFilterUpper;
       const notePeriodId = record._dw_periodotempo_value;
-
       let matchesPeriod = true;
 
       if (selectedPeriodId === "current") {
-        matchesPeriod =
-          !!currentPeriod && notePeriodId === currentPeriod.dw_time_periodid;
+        matchesPeriod = !!currentPeriod && notePeriodId === currentPeriod.dw_time_periodid;
       } else if (selectedPeriodId === "previous") {
-        matchesPeriod =
-          !!currentPeriod &&
-          periods.some(
-            (period) =>
-              period.dw_time_periodid === notePeriodId &&
-              isPeriodBeforeCurrent(period, currentPeriod),
-          );
+        matchesPeriod = !!currentPeriod && periods.some(p => p.dw_time_periodid === notePeriodId && isPeriodBeforeCurrent(p, currentPeriod));
       } else if (selectedPeriodId === "all") {
         matchesPeriod = true;
       } else {
         matchesPeriod = notePeriodId === selectedPeriodId;
       }
-
-      return (
-        matchesSearch && matchesToggle && matchesStatusDropdown && matchesPeriod
-      );
+      return matchesSearch && matchesToggle && matchesStatusDropdown && matchesPeriod;
     });
-  }, [
-    expenses,
-    periods,
-    searchTerm,
-    showOnlyDrafts,
-    statusFilter,
-    selectedPeriodId,
-  ]);
+  }, [expenses, periods, searchTerm, showOnlyDrafts, statusFilter, selectedPeriodId]);
 
   const getStatusStyle = (stato: string) => {
     switch (stato?.toUpperCase()) {
-      case "APPROVATA":
-        return "bg-green-50 text-green-700 border-green-200";
-      case "IN ATTESA DI APPROVAZIONE":
-        return "bg-orange-50 text-orange-700 border-orange-200";
-      case "RIFIUTATA":
-        return "bg-red-50 text-red-700 border-red-200";
-      default:
-        return "bg-slate-50 text-slate-500 border-slate-200";
+      case "APPROVATA": return "bg-green-50 text-green-700 border-green-200";
+      case "IN ATTESA DI APPROVAZIONE": return "bg-orange-50 text-orange-700 border-orange-200";
+      case "RIFIUTATA": return "bg-red-50 text-red-700 border-red-200";
+      default: return "bg-slate-50 text-slate-500 border-slate-200";
     }
   };
 
   const getStatusIcon = (stato: string) => {
     switch (stato?.toUpperCase()) {
-      case "APPROVATA":
-        return <CheckCircle2 size={14} />;
-      case "IN ATTESA DI APPROVAZIONE":
-        return <Clock size={14} />;
-      case "RIFIUTATA":
-        return <XCircle size={14} />;
+      case "APPROVATA": return <CheckCircle2 size={14} />;
+      case "IN ATTESA DI APPROVAZIONE": return <Clock size={14} />;
+      case "RIFIUTATA": return <XCircle size={14} />;
       case "BOZZA":
-      case "IN COMPOSIZIONE":
-        return <FileEdit size={14} />;
-      default:
-        return null;
+      case "IN COMPOSIZIONE": return <FileEdit size={14} />;
+      default: return null;
     }
   };
 
   const handleRowClick = (record: any) => {
-    const stato =
-      record[
-        "dw_stato@OData.Community.Display.V1.FormattedValue"
-      ]?.toUpperCase() ?? "";
+    const stato = record["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() ?? "";
     if (stato === "IN COMPOSIZIONE" || stato === "BOZZA") return;
-    setSelectedId(
-      record.dw_nota_speseid === selectedId ? null : record.dw_nota_speseid,
-    );
+    const id = record.dw_nota_speseid;
+    setSelectedId(id === selectedId ? null : id);
+    setIsDrawerOpen(id !== selectedId);
   };
 
   const handleExport = () => {
-    if (filteredExpenses.length === 0) {
-      alert("Nessuna nota spesa da esportare.");
-      return;
-    }
-
-    const rows = filteredExpenses.map((record: any) => {
-      const name = record.dw_name ?? "Nota_Spesa";
-      const dipendente = getField(record, "dw_dipendente");
-      const commessa = getField(record, "dw_codicedicommessa");
-      const periodo = getField(record, "dw_periodotempo");
-      const stato =
-        record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
-
-      return {
-        Nome: name,
-        Dipendente: dipendente,
-        "Codice Commessa": commessa,
-        "Periodo Tempo": periodo,
-        Stato: stato,
-      };
-    });
-
+    if (filteredExpenses.length === 0) { alert("Nessuna nota spesa da esportare."); return; }
+    const rows = filteredExpenses.map((r: any) => ({
+      Nome: r.dw_name ?? "Nota_Spesa",
+      Dipendente: getField(r, "dw_dipendente"),
+      "Codice Commessa": getField(r, "dw_codicedicommessa"),
+      "Periodo Tempo": getField(r, "dw_periodotempo"),
+      Stato: r["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "",
+    }));
     const headers = Object.keys(rows[0]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) =>
-        headers
-          .map((header) => escapeCsvValue(row[header as keyof typeof row]))
-          .join(","),
-      ),
-    ].join("\n");
-
-    const blob = new Blob(["\uFEFF" + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-
+    const csvContent = [headers.join(","), ...rows.map(row => headers.map(h => escapeCsvValue(row[h as keyof typeof row])).join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
     link.href = url;
     link.download = `note-spese-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
-
     URL.revokeObjectURL(url);
   };
+
+  // Render Full Detail View if an item is selected from the drawer
+  if (fullDetailId) {
+    return (
+      <DettaglioFullView 
+        detailId={fullDetailId} 
+        onBack={() => setFullDetailId(null)}
+        onApprove={(id) => { console.log('Approved:', id); setFullDetailId(null); loadExpenses(); }}
+        onReject={(id) => { console.log('Rejected:', id); setFullDetailId(null); loadExpenses(); }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-12">
@@ -306,28 +214,19 @@ const ExpenseDashboard: React.FC = () => {
               <span className="text-lg font-black tracking-tighter">AG</span>
             </div>
             <div>
-              <span className="text-xl font-bold text-slate-800 tracking-tight">
-                AGIC
-              </span>
-              <span className="text-xl font-light text-slate-400 ml-1">
-                Group
-              </span>
+              <span className="text-xl font-bold text-slate-800 tracking-tight">AGIC</span>
+              <span className="text-xl font-light text-slate-400 ml-1">Group</span>
             </div>
           </div>
           <div className="h-8 w-[1px] bg-slate-200" />
-          <h1 className="text-2xl font-bold text-slate-800">
-            Note Spese - Operatore
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-800">Note Spese - Operatore</h1>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#E85C24] transition-colors"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Cerca per dipendente o commessa..."
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#E85C24] transition-colors" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cerca per dipendente o commessa..." 
               className="pl-12 pr-6 py-2.5 bg-slate-100 border-transparent rounded-full focus:bg-white focus:ring-2 focus:ring-[#E85C24]/20 focus:border-[#E85C24] transition-all outline-none w-80 text-sm border hover:border-slate-300"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -340,52 +239,15 @@ const ExpenseDashboard: React.FC = () => {
         {/* Summary Cards */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            {
-              label: "Bozze",
-              val: stats.bozze,
-              color: "text-slate-400",
-              bg: "bg-slate-50",
-              icon: <FileEdit size={24} />,
-            },
-            {
-              label: "In Attesa di Approvazione",
-              val: stats.attesa,
-              color: "text-orange-500",
-              bg: "bg-orange-50",
-              icon: <Clock size={24} />,
-            },
-            {
-              label: "Approvate",
-              val: stats.approvate,
-              color: "text-green-500",
-              bg: "bg-green-50",
-              icon: <CheckCircle2 size={24} />,
-            },
-            {
-              label: "Rifiutate",
-              val: stats.rifiutate,
-              color: "text-red-500",
-              bg: "bg-red-50",
-              icon: <XCircle size={24} />,
-            },
+            { label: "Bozze", val: stats.bozze, color: "text-slate-400", bg: "bg-slate-50", icon: <FileEdit size={24} /> },
+            { label: "In Attesa", val: stats.attesa, color: "text-orange-500", bg: "bg-orange-50", icon: <Clock size={24} /> },
+            { label: "Approvate", val: stats.approvate, color: "text-green-500", bg: "bg-green-50", icon: <CheckCircle2 size={24} /> },
+            { label: "Rifiutate", val: stats.rifiutate, color: "text-red-500", bg: "bg-red-50", icon: <XCircle size={24} /> },
           ].map((card, i) => (
-            <div
-              key={i}
-              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-[#E85C24] transition-all"
-            >
-              <div>
-                <p className="text-[10px] uppercase font-bold text-slate-400 tracking-[0.2em] mb-1">
-                  {card.label}
-                </p>
-                <p className="text-3xl font-black text-slate-800">
-                  {isLoading ? "..." : card.val}
-                </p>
-              </div>
-              <div
-                className={`w-12 h-12 rounded-xl ${card.bg} ${card.color} flex items-center justify-center transition-colors group-hover:scale-110 duration-200`}
-              >
-                {card.icon}
-              </div>
+            <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group hover:border-[#E85C24] transition-all">
+              <div><p className="text-[10px] uppercase font-bold text-slate-400 tracking-[0.2em] mb-1">{card.label}</p>
+              <p className="text-3xl font-black text-slate-800">{isLoading ? "..." : card.val}</p></div>
+              <div className={`w-12 h-12 rounded-xl ${card.bg} ${card.color} flex items-center justify-center transition-colors group-hover:scale-110 duration-200`}>{card.icon}</div>
             </div>
           ))}
         </section>
@@ -393,211 +255,85 @@ const ExpenseDashboard: React.FC = () => {
         {/* Filters Toolbar */}
         <section className="flex flex-col lg:flex-row lg:items-center gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-6">
-            <span
-              className={`text-sm font-semibold transition-colors ${!showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}
-            >
-              Tutte le Note
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={showOnlyDrafts}
-              onClick={() => setShowOnlyDrafts((prev) => !prev)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 ${showOnlyDrafts ? "bg-[#E85C24]" : "bg-slate-200"}`}
-            >
-              <span
-                className={`pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showOnlyDrafts ? "translate-x-5" : "translate-x-0"}`}
-              />
+            <span className={`text-sm font-semibold transition-colors ${!showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Tutte le Note</span>
+            <button type="button" role="switch" aria-checked={showOnlyDrafts} onClick={() => setShowOnlyDrafts((prev) => !prev)} className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 ${showOnlyDrafts ? "bg-[#E85C24]" : "bg-slate-200"}`}>
+              <span className={`pointer-events-none block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${showOnlyDrafts ? "translate-x-5" : "translate-x-0"}`} />
             </button>
-            <span
-              className={`text-sm font-semibold transition-colors ${showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}
-            >
-              Bozze
-            </span>
+            <span className={`text-sm font-semibold transition-colors ${showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Bozze</span>
           </div>
-
           <div className="flex items-center gap-6">
-            {" "}
             <div className="flex-1 max-w-[240px]">
               <div className="relative">
-                <select
-                  className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option>Tutti gli stati</option>
-                  <option>Approvata</option>
-                  <option>In attesa di approvazione</option>
-                  <option>Rifiutata</option>
+                <select className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option>Tutti gli stati</option><option>Approvata</option><option>In attesa di approvazione</option><option>Rifiutata</option>
                 </select>
-                <ChevronRight
-                  size={14}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
-                />
+                <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
               </div>
             </div>
           </div>
-          <div className="ml-auto flex justify-end">
-            <select
-              className="appearance-none px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
-              value={selectedPeriodId}
-              onChange={(e) => setSelectedPeriodId(e.target.value)}
-            >
-              <option value="current">Periodo corrente</option>
-              <option value="previous">Periodi precedenti</option>
-              <option value="all">Tutti i periodi</option>
-
-              {periods
-                .slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.dw_periodoinizio).getTime() -
-                    new Date(a.dw_periodoinizio).getTime(),
-                )
-                .map((period) => (
-                  <option
-                    key={period.dw_time_periodid}
-                    value={period.dw_time_periodid}
-                  >
-                    {period.dw_name}
-                  </option>
-                ))}
-            </select>
-
-            <Calendar
-              size={16}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-            />
+          <div className="ml-auto flex justify-end gap-3 items-center">
+            <div className="relative">
+              <select className="appearance-none px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] hover:text-[#E85C24] transition-all" value={selectedPeriodId} onChange={(e) => setSelectedPeriodId(e.target.value)}>
+                <option value="current">Periodo corrente</option><option value="previous">Periodi precedenti</option><option value="all">Tutti i periodi</option>
+                {periods.slice().sort((a, b) => new Date(b.dw_periodoinizio).getTime() - new Date(a.dw_periodoinizio).getTime()).map((p) => (<option key={p.dw_time_periodid} value={p.dw_time_periodid}>{p.dw_name}</option>))}
+              </select>
+              <Calendar size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
           </div>
         </section>
 
         {/* Table Section */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
-            <div className="flex items-center gap-3">
-              <LayoutDashboard size={20} className="text-[#E85C24]" />
-              <h2 className="text-xl font-bold text-slate-800">
-                Elenco Note Spese
-              </h2>
-            </div>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
-            >
-              <Download size={18} /> Esporta Note{" "}
-              <ChevronRight size={14} className="rotate-90" />
-            </button>
+            <div className="flex items-center gap-3"><LayoutDashboard size={20} className="text-[#E85C24]" /><h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2></div>
+            <button onClick={handleExport} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"><Download size={18} /> Esporta Note <ChevronRight size={14} className="rotate-90" /></button>
           </div>
-
           <div className="overflow-x-auto flex-1">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400">
-                <Loader2 className="animate-spin text-[#E85C24]" size={40} />
-                <p className="font-medium animate-pulse">Caricamento dati...</p>
-              </div>
-            ) : (
+            {isLoading ? (<div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400"><Loader2 className="animate-spin text-[#E85C24]" size={40} /><p className="font-medium animate-pulse">Caricamento dati...</p></div>) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold border-b border-slate-100">
-                    <th className="px-8 py-5">Nome</th>
-                    <th className="px-6 py-5">Dipendente</th>
-                    <th className="px-6 py-5">Codice Commessa</th>
-                    <th className="px-6 py-5">Periodo Tempo</th>
-                    <th className="px-6 py-5">Stato</th>
+                    <th className="px-8 py-5">Nome</th><th className="px-6 py-5">Dipendente</th><th className="px-6 py-5">Codice Commessa</th><th className="px-6 py-5">Periodo Tempo</th><th className="px-6 py-5">Stato</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredExpenses.map((record: any) => {
                     const id = record.dw_nota_speseid;
-                    const name = record.dw_name ?? "Nota_Spesa";
-                    const dipendente = getField(record, "dw_dipendente");
-                    const commessa = getField(record, "dw_codicedicommessa");
-                    const periodo = getField(record, "dw_periodotempo");
-                    const stato =
-                      record[
-                        "dw_stato@OData.Community.Display.V1.FormattedValue"
-                      ] ?? "In Attesa di Approvazione";
-                    const isDraft =
-                      stato.toUpperCase() === "IN COMPOSIZIONE" ||
-                      stato.toUpperCase() === "BOZZA";
+                    const stato = record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "In Attesa di Approvazione";
+                    const isDraft = stato.toUpperCase() === "IN COMPOSIZIONE" || stato.toUpperCase() === "BOZZA";
                     return (
-                      <tr
-                        key={id}
-                        onClick={() => handleRowClick(record)}
-                        className={`transition-all duration-150 group ${isDraft ? "cursor-default opacity-80 italic bg-slate-50/30" : "cursor-pointer hover:bg-slate-50"} ${selectedId === id ? "bg-orange-50 border-l-4 border-l-[#E85C24]" : "border-l-4 border-l-transparent"}`}
-                      >
-                        <td
-                          className={`px-8 py-6 text-sm font-bold transition-colors ${selectedId === id ? "text-[#E85C24]" : "text-slate-800"}`}
-                        >
-                          {name}
-                        </td>
-                        <td className="px-6 py-6">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold uppercase border ${selectedId === id ? "bg-white border-[#E85C24] text-[#E85C24]" : "bg-slate-100 border-slate-200 text-slate-500"}`}
-                            >
-                              {dipendente
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")}
-                            </div>
-                            <span className="text-sm font-semibold text-slate-700">
-                              {dipendente}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-6 text-sm text-slate-500 font-medium">
-                          {commessa}
-                        </td>
-                        <td className="px-6 py-6 text-sm text-slate-500 font-medium">
-                          {periodo}
-                        </td>
-                        <td className="px-6 py-6">
-                          <span
-                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${getStatusStyle(stato)}`}
-                          >
-                            {getStatusIcon(stato)}
-                            {stato}
-                          </span>
-                        </td>
+                      <tr key={id} onClick={() => handleRowClick(record)} className={`transition-all duration-150 group ${isDraft ? "cursor-default opacity-80 italic bg-slate-50/30" : "cursor-pointer hover:bg-slate-50"} ${selectedId === id ? "bg-orange-50 border-l-4 border-l-[#E85C24]" : "border-l-4 border-l-transparent"}`}>
+                        <td className={`px-8 py-6 text-sm font-bold transition-colors ${selectedId === id ? "text-[#E85C24]" : "text-slate-800"}`}>{record.dw_name ?? "Nota_Spesa"}</td>
+                        <td className="px-6 py-6"><div className="flex items-center gap-3"><div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold uppercase border ${selectedId === id ? "bg-white border-[#E85C24] text-[#E85C24]" : "bg-slate-100 border-slate-200 text-slate-500"}`}>{getField(record, "dw_dipendente").split(" ").map((n: string) => n[0]).join("")}</div><span className="text-sm font-semibold text-slate-700">{getField(record, "dw_dipendente")}</span></div></td>
+                        <td className="px-6 py-6 text-sm text-slate-500 font-medium">{getField(record, "dw_codicedicommessa")}</td>
+                        <td className="px-6 py-6 text-sm text-slate-500 font-medium">{getField(record, "dw_periodotempo")}</td>
+                        <td className="px-6 py-6"><span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${getStatusStyle(stato)}`}>{getStatusIcon(stato)}{stato}</span></td>
                       </tr>
                     );
                   })}
-                  {filteredExpenses.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-8 py-32 text-center text-slate-400 font-medium"
-                      >
-                        Nessuna nota spesa trovata.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             )}
           </div>
         </section>
 
-        {/* Footer Actions */}
         <div className="flex justify-end gap-5 pt-4">
-          <button
-            className="px-8 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:border-[#E85C24] hover:text-[#E85C24] transition-all flex items-center gap-2"
-            onClick={() => alert("Generazione report PDF in corso...")}
-          >
-            Esporta Report
-          </button>
-          <button
-            disabled={!selectedId}
-            className={`px-12 py-4 font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg ${selectedId ? "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-200" : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"}`}
-            onClick={() =>
-              console.log("Navigazione verso Dettagli ID:", selectedId)
-            }
-          >
-            Apri Dettagli <ArrowUpRight size={20} />
-          </button>
+          <button className="px-8 py-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl hover:border-[#E85C24] hover:text-[#E85C24] transition-all flex items-center gap-2" onClick={() => alert("Generazione report PDF in corso...")}>Esporta Report</button>
+          <button disabled={!selectedId} className={`px-12 py-4 font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg ${selectedId ? "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-200" : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"}`} onClick={() => setIsDrawerOpen(true)}>Apri Dettagli <ArrowUpRight size={20} /></button>
         </div>
       </main>
+
+      {/* Slide-in Details Drawer */}
+      <DettagliDrawer 
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        notaSpesaId={selectedId}
+        notaSpesaName={expenses.find(e => e.dw_nota_speseid === selectedId)?.dw_name || 'Nota Spesa'}
+        onSelectDetail={(detailId) => {
+          setFullDetailId(detailId);
+          setIsDrawerOpen(false);
+        }}
+      />
     </div>
   );
 };
