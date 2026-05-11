@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { dataverseConfig } from '../config/dataverse';
 
 const getDataverseAccessToken = async (): Promise<string> => {

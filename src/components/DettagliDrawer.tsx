@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { getReceiptType } from "../services/receiptService";
 import React, { useEffect, useState, useMemo } from 'react';
 import { X, Loader2, FileText, AlertCircle, ChevronRight } from 'lucide-react';
 import ExpenseDetailCard, { type ExpenseDetail } from './ExpenseDetailCard';
@@ -15,7 +16,7 @@ interface DettagliDrawerProps {
 
 /**
  * DettagliDrawer Component
- * Enhanced with exhaustive Dataverse file property extraction.
+ * Enhanced to handle Dataverse file object mapping more robustly.
  */
 const DettagliDrawer: React.FC<DettagliDrawerProps> = ({ 
   isOpen, 
@@ -60,32 +61,20 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
 
   const mappedDetails: ExpenseDetail[] = useMemo(() => {
     return details.map((d: any) => {
-      const receiptFile = d.dw_receipt;
-      
-      // Robust property extraction for Dataverse file objects
-      const url = receiptFile?.url || receiptFile?.value || (typeof receiptFile === 'string' ? receiptFile : undefined);
-      const mimeType = receiptFile?.mimeType || receiptFile?.contentType || receiptFile?.type || '';
-      const fileName = receiptFile?.fileName || receiptFile?.name || '';
+const fileName = d.dw_receipt_name ?? "";
+const hasReceipt = Boolean(d.dw_receipt);
 
-      let receiptType: 'image' | 'pdf' | 'other' = 'other';
-      const isImg = mimeType.toLowerCase().includes('image') || fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/);
-      const isPdf = mimeType.toLowerCase().includes('pdf') || fileName.toLowerCase().endsWith('.pdf');
-      
-      if (isImg) receiptType = 'image';
-      else if (isPdf) receiptType = 'pdf';
-
-      return {
-        id: d.dw_detaglinotespesaid,
-        name: d.dw_name || 'Dettaglio Spesa',
-        createdOn: getFormattedValue(d, 'createdon'),
-        category: getFormattedValue(d, 'dw_categoriadispesa'),
-        currency: getFormattedValue(d, 'dw_currency'),
-        amount: d.dw_totalcost ?? d.dw_amount ?? 0,
-        receiptType,
-        receiptUrl: url,
-        mimeType: mimeType,
-        fileName: fileName
-      };
+return {
+  id: d.dw_detaglinotespesaid,
+  name: d.dw_name || "Dettaglio Spesa",
+  createdOn: getFormattedValue(d, "createdon"),
+  category: getFormattedValue(d, "dw_categoriadispesa"),
+  currency: getFormattedValue(d, "dw_currency"),
+  amount: d.dw_totalcost ?? 0,
+  receiptType: hasReceipt ? getReceiptType(fileName) : "other",
+  fileName,
+  hasReceipt,
+};
     });
   }, [details]);
 
