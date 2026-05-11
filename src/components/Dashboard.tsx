@@ -80,6 +80,36 @@ const ExpenseDashboard: React.FC = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [fullDetailId, setFullDetailId] = useState<string | null>(null);
 
+  const handleApproveNota = async (notaSpesaId: string) => {
+  try {
+    await Dw_nota_spesesService.update(notaSpesaId, {
+      dw_stato: 121950002, // Approvata
+    });
+
+    setIsDrawerOpen(false);
+    setSelectedId(null);
+    await loadExpenses();
+  } catch (err) {
+    console.error("Errore approvazione Nota Spesa:", err);
+    alert("Impossibile approvare la Nota Spesa.");
+  }
+};
+
+const handleRejectNota = async (notaSpesaId: string) => {
+  try {
+    await Dw_nota_spesesService.update(notaSpesaId, {
+      dw_stato: 121950003, // Rifiutata
+    });
+
+    setIsDrawerOpen(false);
+    setSelectedId(null);
+    await loadExpenses();
+  } catch (err) {
+    console.error("Errore rifiuto Nota Spesa:", err);
+    alert("Impossibile rifiutare la Nota Spesa.");
+  }
+};
+
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
   }
@@ -194,15 +224,17 @@ const ExpenseDashboard: React.FC = () => {
   };
 
   // Render Full Detail View if an item is selected from the drawer
-  if (fullDetailId) {
-    return (
-      <DettaglioFullView 
-        detailId={fullDetailId} 
-        onBack={() => setFullDetailId(null)}
-        // Removed individual approval callbacks as they no longer exist in the View-only component
-      />
-    );
-  }
+if (fullDetailId) {
+  return (
+    <DettaglioFullView
+      detailId={fullDetailId}
+      onBack={() => {
+        setFullDetailId(null);
+        setIsDrawerOpen(true);
+      }}
+    />
+  );
+}
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-12">
@@ -323,18 +355,21 @@ const ExpenseDashboard: React.FC = () => {
       </main>
 
       {/* Slide-in Details Drawer */}
-      <DettagliDrawer 
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        notaSpesaId={selectedId}
-        notaSpesaName={expenses.find(e => e.dw_nota_speseid === selectedId)?.dw_name || 'Nota Spesa'}
-        onSelectDetail={(detailId) => {
-          setFullDetailId(detailId);
-          setIsDrawerOpen(false);
-        }}
-        onApproveNota={(id) => { console.log('Approving Nota:', id); setIsDrawerOpen(false); loadExpenses(); }}
-        onRejectNota={(id) => { console.log('Rejecting Nota:', id); setIsDrawerOpen(false); loadExpenses(); }}
-      />
+<DettagliDrawer
+  isOpen={isDrawerOpen}
+  onClose={() => setIsDrawerOpen(false)}
+  notaSpesaId={selectedId}
+  notaSpesaName={
+    expenses.find((e) => e.dw_nota_speseid === selectedId)?.dw_name ||
+    "Nota Spesa"
+  }
+  onSelectDetail={(detailId) => {
+    setFullDetailId(detailId);
+    setIsDrawerOpen(false);
+  }}
+  onApproveNota={handleApproveNota}
+  onRejectNota={handleRejectNota}
+/>
     </div>
   );
 };
