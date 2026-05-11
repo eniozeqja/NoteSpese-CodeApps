@@ -15,7 +15,7 @@ interface DettagliDrawerProps {
 
 /**
  * DettagliDrawer Component
- * Updated to use 'dw_totalcost' and handle visual receipt previews.
+ * Enhanced with exhaustive Dataverse file property extraction.
  */
 const DettagliDrawer: React.FC<DettagliDrawerProps> = ({ 
   isOpen, 
@@ -58,14 +58,21 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
     fetchDetails();
   }, [notaSpesaId, isOpen]);
 
-  // Map Dataverse records including the missing dw_totalcost column
   const mappedDetails: ExpenseDetail[] = useMemo(() => {
     return details.map((d: any) => {
       const receiptFile = d.dw_receipt;
-      let receiptType: 'image' | 'pdf' | 'other' = 'other';
       
-      if (receiptFile?.mimeType?.includes('image')) receiptType = 'image';
-      else if (receiptFile?.mimeType?.includes('pdf')) receiptType = 'pdf';
+      // Robust property extraction for Dataverse file objects
+      const url = receiptFile?.url || receiptFile?.value || (typeof receiptFile === 'string' ? receiptFile : undefined);
+      const mimeType = receiptFile?.mimeType || receiptFile?.contentType || receiptFile?.type || '';
+      const fileName = receiptFile?.fileName || receiptFile?.name || '';
+
+      let receiptType: 'image' | 'pdf' | 'other' = 'other';
+      const isImg = mimeType.toLowerCase().includes('image') || fileName.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp|svg)$/);
+      const isPdf = mimeType.toLowerCase().includes('pdf') || fileName.toLowerCase().endsWith('.pdf');
+      
+      if (isImg) receiptType = 'image';
+      else if (isPdf) receiptType = 'pdf';
 
       return {
         id: d.dw_detaglinotespesaid,
@@ -73,9 +80,11 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
         createdOn: getFormattedValue(d, 'createdon'),
         category: getFormattedValue(d, 'dw_categoriadispesa'),
         currency: getFormattedValue(d, 'dw_currency'),
-        amount: d.dw_totalcost ?? 0, // FIXED: Now using dw_totalcost
+        amount: d.dw_totalcost ?? d.dw_amount ?? 0,
         receiptType,
-        receiptUrl: receiptFile?.url
+        receiptUrl: url,
+        mimeType: mimeType,
+        fileName: fileName
       };
     });
   }, [details]);

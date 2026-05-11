@@ -19,6 +19,8 @@ export interface ExpenseDetail {
   amount: number;
   receiptType: 'image' | 'pdf' | 'other';
   receiptUrl?: string;
+  mimeType?: string; 
+  fileName?: string;
 }
 
 interface ExpenseDetailCardProps {
@@ -28,31 +30,48 @@ interface ExpenseDetailCardProps {
 
 /**
  * ExpenseDetailCard Component
- * Refined to show visual receipt previews and corrected data mapping.
+ * Refined to handle Dataverse's specific file object structure and authentication needs.
  */
 const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({ detail, onClick }) => {
   
   /**
-   * Renders the receipt preview area based on the file type
-   * Now prioritizes showing the actual image or a specific PDF icon
+   * Helper to determine file type based on mimeType or file extension
    */
+  const getFileType = () => {
+    const mime = (detail.mimeType || '').toLowerCase();
+    const url = (detail.receiptUrl || '').toLowerCase();
+    const name = (detail.fileName || '').toLowerCase();
+    
+    if (mime.includes('image') || name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/) || url.match(/\.(jpg|jpeg|png|gif|webp|svg)/)) return 'image';
+    if (mime.includes('pdf') || name.endsWith('.pdf') || url.includes('.pdf')) return 'pdf';
+    return 'other';
+  };
+
+  const fileType = getFileType();
+
   const renderReceiptPreview = () => {
     const iconClasses = "text-slate-400 group-hover:text-[#E85C24] transition-colors";
     
-    if (detail.receiptType === 'image' && detail.receiptUrl) {
+    // Note: If images still don't load, it might be an authentication issue with Dataverse URLs
+    // We provide a fallback and ensure the URL is treated as a direct link if possible
+    if (fileType === 'image' && detail.receiptUrl) {
       return (
         <div className="relative w-full h-full flex items-center justify-center bg-slate-50 overflow-hidden">
           <img 
             src={detail.receiptUrl} 
             alt="Receipt thumbnail" 
             className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+            onError={(e) => {
+               // Fallback if URL is invalid, blocked, or requires auth not present in <img> tag
+               (e.target as HTMLImageElement).src = 'https://placehold.co/200x200?text=Anteprima+Spesa';
+            }}
           />
           <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
         </div>
       );
     }
 
-    if (detail.receiptType === 'pdf') {
+    if (fileType === 'pdf') {
       return (
         <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50/50 gap-1 border-2 border-dashed border-orange-100">
           <FileText size={28} className="text-[#E85C24] drop-shadow-sm" />
@@ -73,12 +92,10 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({ detail, onClick }
       onClick={() => onClick?.(detail.id)}
       className="group relative bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-[#E85C24] transition-all cursor-pointer flex gap-5 overflow-hidden"
     >
-      {/* Receipt Preview Area - Enhanced for visual priority */}
       <div className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-100 overflow-hidden shadow-inner bg-slate-50">
         {renderReceiptPreview()}
       </div>
 
-      {/* Content Area */}
       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
         <div>
           <div className="flex justify-between items-start gap-2">
@@ -111,7 +128,6 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({ detail, onClick }
         </div>
       </div>
 
-      {/* Active Indicator Strip */}
       <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#E85C24] transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
     </div>
   );
