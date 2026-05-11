@@ -27,7 +27,7 @@ import DettaglioFullView from './DettaglioFullView';
 
 /**
  * Integrated AGIC Group Expense Dashboard
- * Features: Dataverse connectivity, Period filtering, Multi-state Drawer, and Detail Full View.
+ * Fixed: Removed individual approval callbacks from DettaglioFullView to match new view-only implementation.
  */
 
 function normalizeStartDate(dateInput: string | Date): Date {
@@ -199,8 +199,7 @@ const ExpenseDashboard: React.FC = () => {
       <DettaglioFullView 
         detailId={fullDetailId} 
         onBack={() => setFullDetailId(null)}
-        onApprove={(id) => { console.log('Approved:', id); setFullDetailId(null); loadExpenses(); }}
-        onReject={(id) => { console.log('Rejected:', id); setFullDetailId(null); loadExpenses(); }}
+        // Removed individual approval callbacks as they no longer exist in the View-only component
       />
     );
   }
@@ -333,6 +332,8 @@ const ExpenseDashboard: React.FC = () => {
           setFullDetailId(detailId);
           setIsDrawerOpen(false);
         }}
+        onApproveNota={(id) => { console.log('Approving Nota:', id); setIsDrawerOpen(false); loadExpenses(); }}
+        onRejectNota={(id) => { console.log('Rejecting Nota:', id); setIsDrawerOpen(false); loadExpenses(); }}
       />
     </div>
   );

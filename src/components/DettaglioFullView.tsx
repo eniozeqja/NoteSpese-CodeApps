@@ -1,5 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -9,8 +11,6 @@ import {
   FileText,
   ExternalLink,
   Download,
-  CheckCircle2,
-  XCircle,
   Clock,
   Maximize2,
   Paperclip,
@@ -23,15 +23,16 @@ import { useAttachment } from "../hooks/useAttachment";
 interface DettaglioFullViewProps {
   detailId: string;
   onBack: () => void;
-  onApprove?: (id: string) => void;
-  onReject?: (id: string) => void;
 }
 
+/**
+ * DettaglioFullView Component
+ * View-only screen for individual expense line items.
+ * Per-item approval buttons have been removed as approval is handled at parent level.
+ */
 const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
   detailId,
   onBack,
-  onApprove,
-  onReject,
 }) => {
   const [detail, setDetail] = useState<Dw_detaglinotespesas | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,7 +87,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
-          <XCircle size={32} />
+          <Paperclip size={32} />
         </div>
         <h2 className="text-xl font-bold text-slate-800">
           Errore di caricamento
@@ -98,7 +99,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
           onClick={onBack}
           className="mt-6 px-6 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
         >
-          Torna all&apos;elenco
+          Torna all'elenco
         </button>
       </div>
     );
@@ -114,7 +115,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-20">
-      <header className="bg-white border-b border-slate-200 px-10 py-5 flex items-center justify-between sticky top-0 z-50">
+      <header className="bg-white border-b border-slate-200 px-10 py-5 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-6">
           <button
             onClick={onBack}
@@ -139,19 +140,9 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => onReject?.(detailId)}
-            className="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl text-sm hover:bg-red-50 transition-all flex items-center gap-2"
-          >
-            <XCircle size={18} /> Rifiuta Voce
-          </button>
-
-          <button
-            onClick={() => onApprove?.(detailId)}
-            className="px-8 py-2.5 bg-[#E85C24] text-white font-bold rounded-xl text-sm shadow-lg shadow-orange-100 hover:bg-[#d04a1b] transition-all flex items-center gap-2"
-          >
-            <CheckCircle2 size={18} /> Approva Voce
-          </button>
+          <span className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-500 border border-slate-200 rounded-full text-xs font-bold uppercase tracking-wider">
+            <Clock size={14} /> Solo Visualizzazione
+          </span>
         </div>
       </header>
 
@@ -227,11 +218,14 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
 
             <div className="space-y-4">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
-                Stato Approvazione
+                Workflow Approvativo
               </h3>
-              <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 border border-orange-100 rounded-full text-xs font-bold uppercase tracking-wider">
-                <Clock size={14} /> In Attesa di Revisione
-              </span>
+              <div className="flex flex-col gap-2">
+                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 border border-orange-100 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
+                   <Clock size={14} /> In Attesa di Revisione Nota
+                 </span>
+                 <p className="text-[10px] text-slate-400 italic mt-1">L'approvazione deve essere eseguita a livello di Nota Spesa.</p>
+              </div>
             </div>
           </section>
 
@@ -241,10 +235,10 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
               Decisionale
             </h4>
             <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-              Verifica la conformità dell&apos;allegato alla policy aziendale.
+              Verifica la conformità dell'allegato alla policy aziendale AGIC Group.
             </p>
             <button className="w-full py-3 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition-all border border-white/10">
-              Visualizza Policy
+              Visualizza Policy Spese
             </button>
           </div>
         </div>
@@ -315,7 +309,7 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
                 <iframe
                   src={attachmentUrl}
                   title={fileName || "Ricevuta PDF"}
-                  className="w-full h-[700px] rounded-xl border border-slate-200 bg-white"
+                  className="w-full h-[700px] rounded-xl border border-slate-200 bg-white shadow-inner"
                 />
               ) : hasReceipt ? (
                 <div className="flex flex-col items-center justify-center text-slate-400 gap-4">

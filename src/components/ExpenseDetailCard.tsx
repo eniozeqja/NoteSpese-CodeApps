@@ -26,6 +26,10 @@ interface ExpenseDetailCardProps {
   onClick?: (id: string) => void;
 }
 
+/**
+ * ExpenseDetailCard Component
+ * Modern card for expense line items. Selection only; approval is handled at parent level.
+ */
 const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
   detail,
   onClick,

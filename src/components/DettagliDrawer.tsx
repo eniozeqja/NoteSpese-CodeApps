@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getReceiptType } from "../services/receiptService";
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Loader2, FileText, AlertCircle, ChevronRight } from 'lucide-react';
+import { X, Loader2, FileText, AlertCircle, ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
 import ExpenseDetailCard, { type ExpenseDetail } from './ExpenseDetailCard';
 import { Dw_detaglinotespesasService } from '../generated/services/Dw_detaglinotespesasService';
 import type { Dw_detaglinotespesas } from '../generated/models/Dw_detaglinotespesasModel';
@@ -12,18 +13,23 @@ interface DettagliDrawerProps {
   notaSpesaId: string | null;
   notaSpesaName: string;
   onSelectDetail: (detailId: string) => void;
+  onApproveNota?: (id: string) => void;
+  onRejectNota?: (id: string) => void;
 }
 
 /**
  * DettagliDrawer Component
- * Enhanced to handle Dataverse file object mapping more robustly.
+ * Slide-in panel for viewing expense items. 
+ * Corrected: Approval/rejection now applies to the whole parent Nota Spesa.
  */
 const DettagliDrawer: React.FC<DettagliDrawerProps> = ({ 
   isOpen, 
   onClose, 
   notaSpesaId, 
   notaSpesaName,
-  onSelectDetail 
+  onSelectDetail,
+  onApproveNota,
+  onRejectNota
 }) => {
   const [details, setDetails] = useState<Dw_detaglinotespesas[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,20 +67,20 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
 
   const mappedDetails: ExpenseDetail[] = useMemo(() => {
     return details.map((d: any) => {
-const fileName = d.dw_receipt_name ?? "";
-const hasReceipt = Boolean(d.dw_receipt);
+      const fileName = d.dw_receipt_name ?? "";
+      const hasReceipt = Boolean(d.dw_receipt);
 
-return {
-  id: d.dw_detaglinotespesaid,
-  name: d.dw_name || "Dettaglio Spesa",
-  createdOn: getFormattedValue(d, "createdon"),
-  category: getFormattedValue(d, "dw_categoriadispesa"),
-  currency: getFormattedValue(d, "dw_currency"),
-  amount: d.dw_totalcost ?? 0,
-  receiptType: hasReceipt ? getReceiptType(fileName) : "other",
-  fileName,
-  hasReceipt,
-};
+      return {
+        id: d.dw_detaglinotespesaid,
+        name: d.dw_name || "Dettaglio Spesa",
+        createdOn: getFormattedValue(d, "createdon"),
+        category: getFormattedValue(d, "dw_categoriadispesa"),
+        currency: getFormattedValue(d, "dw_currency"),
+        amount: d.dw_totalcost ?? 0,
+        receiptType: hasReceipt ? getReceiptType(fileName) : "other",
+        fileName,
+        hasReceipt,
+      };
     });
   }, [details]);
 
@@ -100,7 +106,7 @@ return {
           </button>
         </div>
 
-        <div className="h-[calc(100%-160px)] overflow-y-auto p-6">
+        <div className="h-[calc(100%-160px)] overflow-y-auto p-6 pb-24">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
               <Loader2 className="animate-spin text-[#E85C24]" size={32} />
@@ -130,9 +136,18 @@ return {
           )}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-200">
-          <button className="w-full py-4 bg-[#E85C24] text-white font-bold rounded-2xl shadow-lg shadow-orange-100 hover:bg-[#d04a1b] transition-all flex items-center justify-center gap-2 group">
-            Approva Tutte le Voci <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+        <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-200 grid grid-cols-2 gap-4">
+          <button 
+            onClick={() => notaSpesaId && onRejectNota?.(notaSpesaId)}
+            className="py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 transition-all flex items-center justify-center gap-2"
+          >
+            <XCircle size={18} /> Rifiuta Nota
+          </button>
+          <button 
+            onClick={() => notaSpesaId && onApproveNota?.(notaSpesaId)}
+            className="py-4 bg-[#E85C24] text-white font-bold rounded-2xl shadow-lg shadow-orange-100 hover:bg-[#d04a1b] transition-all flex items-center justify-center gap-2 group"
+          >
+            <CheckCircle2 size={18} /> Approva Nota
           </button>
         </div>
       </aside>
