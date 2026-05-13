@@ -25,6 +25,7 @@ import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsServ
 // Integrated Components
 import DettagliDrawer from './DettagliDrawer';
 import DettaglioFullView from './DettaglioFullView';
+import MainLayout from './MainLayout'; // Import the new shared layout
 
 /**
  * Modern Radix-style Switch Component
@@ -52,9 +53,17 @@ const ExpenseDashboard: React.FC = () => {
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("current");
 
+
   // Navigation & Integration State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [fullDetailId, setFullDetailId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodId]);
 
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
@@ -134,6 +143,25 @@ const ExpenseDashboard: React.FC = () => {
       return matchesSearch && matchesToggle && matchesStatusDropdown && matchesPeriod;
     });
   }, [expenses, periods, searchTerm, showOnlyDrafts, statusFilter, selectedPeriodId]);
+
+    const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+    const paginatedExpenses = useMemo(() => {
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return filteredExpenses.slice(startIndex, endIndex);
+    }, [filteredExpenses, currentPage]);
+
+    const visiblePages = useMemo(() => {
+      const pages: number[] = []
+
+      const start = Math.max(1, currentPage - 2)
+      const end = Math.min(totalPages, currentPage + 2)
+
+      for (let page = start; page <= end; page++){
+        pages.push(page)
+      }
+      return pages;
+    }, [currentPage, totalPages]);
 
   const getStatusStyle = (stato: string) => {
     switch (stato?.toUpperCase()) {
@@ -265,36 +293,8 @@ const handleRejectNota = async (id: string) => {
 };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 pb-12">
-      <header className="bg-white border-b border-slate-200 px-10 py-5 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#E85C24] rounded-lg flex items-center justify-center text-white shadow-md shadow-orange-100">
-              <span className="text-lg font-black tracking-tighter">AG</span>
-            </div>
-            <div>
-              <span className="text-xl font-bold text-slate-800 tracking-tight">AGIC</span>
-              <span className="text-xl font-light text-slate-400 ml-1">Group</span>
-            </div>
-          </div>
-          <div className="h-8 w-[1px] bg-slate-200" />
-          <h1 className="text-2xl font-bold text-slate-800">Note Spese - Operatore</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#E85C24] transition-colors" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cerca per dipendente o commessa..." 
-              className="pl-12 pr-6 py-2.5 bg-slate-100 border-transparent rounded-full focus:bg-white focus:ring-2 focus:ring-[#E85C24]/20 focus:border-[#E85C24] transition-all outline-none w-80 text-sm border hover:border-slate-300"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </header>
-
-      <main className="p-10 max-w-[1600px] mx-auto space-y-8">
+    <MainLayout activeTab="dashboard">
+      <div className="p-10 max-w-[1600px] mx-auto space-y-8">
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { label: "Bozze", val: stats.bozze, color: "text-slate-400", bg: "bg-slate-50", icon: <FileEdit size={24} /> },
@@ -309,44 +309,111 @@ const handleRejectNota = async (id: string) => {
             </div>
           ))}
         </section>
+          <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row lg:items-center gap-8">
+  <div className="flex items-center gap-6 border-r border-slate-100 pr-8">
+    <span
+      className={`text-sm font-semibold transition-colors ${
+        !showOnlyDrafts ? "text-slate-900" : "text-slate-400"
+      }`}
+    >
+      Tutte le Note
+    </span>
 
-        <section className="flex flex-col lg:flex-row lg:items-center gap-6 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-          <div className="flex items-center gap-6">
-            <span className={`text-sm font-semibold transition-colors ${!showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Tutte le Note</span>
-            <Switch checked={showOnlyDrafts} onCheckedChange={setShowOnlyDrafts} />
-            <span className={`text-sm font-semibold transition-colors ${showOnlyDrafts ? "text-slate-900" : "text-slate-400"}`}>Bozze</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <div className="flex-1 max-w-[240px]">
-              <div className="relative">
-                <select className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option>Tutti gli stati</option><option>Approvata</option><option>In attesa di approvazione</option><option>Rifiutata</option>
-                </select>
-                <ChevronRight size={14} className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-          <div className="ml-auto flex justify-end gap-3 items-center">
-            <div className="relative">
-              <select className="appearance-none px-4 py-2.5 pr-10 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] hover:text-[#E85C24] transition-all" value={selectedPeriodId} onChange={(e) => setSelectedPeriodId(e.target.value)}>
-                <option value="current">Periodo corrente</option><option value="previous">Periodi precedenti</option><option value="all">Tutti i periodi</option>
-                {periods.slice().sort((a, b) => new Date(b.dw_periodoinizio).getTime() - new Date(a.dw_periodoinizio).getTime()).map((p) => (<option key={p.dw_time_periodid} value={p.dw_time_periodid}>{p.dw_name}</option>))}
-              </select>
-              <Calendar size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-        </section>
+    <Switch checked={showOnlyDrafts} onCheckedChange={setShowOnlyDrafts} />
+
+    <span
+      className={`text-sm font-semibold transition-colors ${
+        showOnlyDrafts ? "text-slate-900" : "text-slate-400"
+      }`}
+    >
+      Bozze
+    </span>
+  </div>
+
+  <div className="flex flex-1 items-center gap-6">
+    <div className="w-full max-w-[200px]">
+      <div className="relative">
+        <select
+          className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm font-medium cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 transition-colors"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option>Tutti gli stati</option>
+          <option>Approvata</option>
+          <option>In attesa di approvazione</option>
+          <option>Rifiutata</option>
+        </select>
+
+        <ChevronRight
+          size={14}
+          className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
+        />
+      </div>
+    </div>
+
+    <div className="relative w-full max-w-[200px]">
+      <select
+        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] transition-all"
+        value={selectedPeriodId}
+        onChange={(e) => setSelectedPeriodId(e.target.value)}
+      >
+        <option value="current">Periodo corrente</option>
+        <option value="previous">Periodi precedenti</option>
+        <option value="all">Tutti i periodi</option>
+
+        {periods
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b.dw_periodoinizio).getTime() -
+              new Date(a.dw_periodoinizio).getTime()
+          )
+          .map((p) => (
+            <option key={p.dw_time_periodid} value={p.dw_time_periodid}>
+              {p.dw_name}
+            </option>
+          ))}
+      </select>
+
+      <Calendar
+        size={16}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+      />
+    </div>
+
+    <button
+      className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
+      onClick={() => alert("Filtri avanzati non ancora implementati.")}
+    >
+      <Filter size={18} /> Filtri Avanzati
+    </button>
+  </div>
+
+  <div className="relative w-full max-w-[320px]">
+    <Search
+      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+      size={18}
+    />
+    <input
+      type="text"
+      placeholder="Cerca dipendente o commessa..."
+      className="w-full pl-12 pr-6 py-2.5 bg-slate-100 border border-transparent rounded-full focus:bg-white focus:ring-2 focus:ring-[#E85C24]/10 focus:border-[#E85C24]/30 transition-all outline-none text-sm"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+    />
+  </div>
+</section>
 
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-3"><LayoutDashboard size={20} className="text-[#E85C24]" /><h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2></div>
             <button
-  onClick={handleExport}
-  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
->
-  <Download size={18} /> Esporta Note{" "}
-  <ChevronRight size={14} className="rotate-90" />
-</button>
+              onClick={handleExport}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
+            >
+            <Download size={18} /> Esporta Note{" "}
+            <ChevronRight size={14} className="rotate-90" />
+            </button>
           </div>
           <div className="overflow-x-auto flex-1">
             {isLoading ? (<div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400"><Loader2 className="animate-spin text-[#E85C24]" size={40} /><p className="font-medium animate-pulse">Caricamento dati...</p></div>) : (
@@ -357,7 +424,7 @@ const handleRejectNota = async (id: string) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredExpenses.map((record: any) => {
+                  {paginatedExpenses.map((record: any) => {
                     const id = record.dw_nota_speseid;
                     const stato = record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "In Attesa di Approvazione";
                     const isDraft = stato.toUpperCase() === "IN COMPOSIZIONE" || stato.toUpperCase() === "BOZZA";
@@ -375,12 +442,75 @@ const handleRejectNota = async (id: string) => {
               </table>
             )}
           </div>
+          {filteredExpenses.length > 0 && (
+  <div className="px-8 py-5 border-t border-slate-100 bg-white flex items-center justify-between">
+    <p className="text-sm text-slate-500 font-medium">
+      Mostrando{" "}
+      <span className="font-bold text-slate-700">
+        {(currentPage - 1) * itemsPerPage + 1}
+      </span>{" "}
+      -{" "}
+      <span className="font-bold text-slate-700">
+        {Math.min(currentPage * itemsPerPage, filteredExpenses.length)}
+      </span>{" "}
+      di{" "}
+      <span className="font-bold text-slate-700">
+        {filteredExpenses.length}
+      </span>{" "}
+      note spese
+    </p>
+
+    <div className="flex items-center gap-2">
+      <button
+        disabled={currentPage === 1}
+        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+        className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-all ${
+          currentPage === 1
+            ? "border-slate-100 text-slate-300 cursor-not-allowed"
+            : "border-slate-200 text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24]"
+        }`}
+      >
+        <ChevronLeft size={18} />
+      </button>
+
+      {visiblePages.map(
+        (page) => (
+          <button
+            key={page}
+            onClick={() => setCurrentPage(page)}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${
+              currentPage === page
+                ? "bg-[#E85C24] text-white shadow-sm"
+                : "border border-slate-200 text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24]"
+            }`}
+          >
+            {page}
+          </button>
+        )
+      )}
+
+      <button
+        disabled={currentPage === totalPages}
+        onClick={() =>
+          setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+        }
+        className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-all ${
+          currentPage === totalPages
+            ? "border-slate-100 text-slate-300 cursor-not-allowed"
+            : "border-slate-200 text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24]"
+        }`}
+      >
+        <ChevronRight size={18} />
+      </button>
+    </div>
+  </div>
+)}
         </section>
 
         <div className="flex justify-end gap-5 pt-4">
           <button disabled={!selectedId} className={`px-12 py-4 font-bold rounded-2xl transition-all flex items-center gap-3 shadow-lg ${selectedId ? "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-200" : "bg-slate-100 text-slate-400 cursor-not-allowed shadow-none border border-slate-200"}`} onClick={() => setIsDrawerOpen(true)}>Apri Dettagli <ArrowUpRight size={20} /></button>
         </div>
-      </main>
+      </div>
 
       {/* Slide-in Details Drawer */}
       <DettagliDrawer 
@@ -395,7 +525,7 @@ const handleRejectNota = async (id: string) => {
         onApproveNota={handleApproveNota}
         onRejectNota={handleRejectNota}
       />
-    </div>
+    </MainLayout>
   );
 };
 
