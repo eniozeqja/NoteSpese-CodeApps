@@ -13,9 +13,12 @@ import {
   Search
 } from 'lucide-react';
 
+type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
+
 interface MainLayoutProps {
   children: React.ReactNode;
-  activeTab: string;
+  activeTab: AppPage;
+  onNavigate?: (page: AppPage) => void;
 }
 
 /**
@@ -23,7 +26,7 @@ interface MainLayoutProps {
  * Updated: Sidebar color now matches the dashboard (slate-50/white base) to support future themes.
  * TopBar: Displays the page title "Note Spese - Operatore" instead of the search bar.
  */
-const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
   const menuItems = [
@@ -60,14 +63,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab }) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-              <button
-                key={item.id}
-                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
-                  isActive 
-                    ? 'bg-orange-50 text-[#E85C24] font-bold' 
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-                }`}
-              >
+<button
+  key={item.id}
+  onClick={() => onNavigate?.(item.id as AppPage)}
+  className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
+    isActive
+      ? "bg-orange-50 text-[#E85C24] font-bold"
+      : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+  }`}
+>
                 <Icon size={20} className={`shrink-0 ${isActive ? 'text-[#E85C24]' : 'group-hover:scale-110 transition-transform'}`} />
                 {!isMinimized && <span className="text-sm truncate">{item.label}</span>}
               </button>
@@ -117,7 +121,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab }) => {
 
             <div className="flex items-center gap-3 pl-2">
                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black text-slate-800 leading-none">Mario Rossi</p>
+                  <p className="text-sm font-black text-slate-800 leading-none">Test</p>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">OPERATORE</p>
                </div>
                <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 shadow-sm overflow-hidden ring-1 ring-slate-100 cursor-pointer">

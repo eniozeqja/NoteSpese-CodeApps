@@ -10,6 +10,7 @@ import type { Dw_detaglinotespesas } from '../generated/models/Dw_detaglinotespe
 interface DettagliDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  isUpdatingNota?: boolean;
   notaSpesaId: string | null;
   notaSpesaName: string;
   onSelectDetail: (detailId: string) => void;
@@ -29,7 +30,8 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
   notaSpesaName,
   onSelectDetail,
   onApproveNota,
-  onRejectNota
+  onRejectNota,
+  isUpdatingNota = false,
 }) => {
   const [details, setDetails] = useState<Dw_detaglinotespesas[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -137,18 +139,34 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-200 grid grid-cols-2 gap-4">
-          <button 
-            onClick={() => notaSpesaId && onRejectNota?.(notaSpesaId)}
-            className="py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-          >
-            <XCircle size={18} /> Rifiuta Nota
-          </button>
-          <button 
-            onClick={() => notaSpesaId && onApproveNota?.(notaSpesaId)}
-            className="py-4 bg-[#E85C24] text-white font-bold rounded-2xl shadow-lg shadow-orange-100 hover:bg-[#d04a1b] transition-all flex items-center justify-center gap-2 group"
-          >
-            <CheckCircle2 size={18} /> Approva Nota
-          </button>
+<button
+  disabled={!notaSpesaId || isUpdatingNota}
+  onClick={() => notaSpesaId && onRejectNota?.(notaSpesaId)}
+  className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+    isUpdatingNota
+      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+      : "bg-white border border-red-200 text-red-600 hover:bg-red-50"
+  }`}
+><XCircle size={18} /> 
+  {isUpdatingNota ? "Aggiornamento..." : "Rifiuta Nota"}
+            
+</button>
+<button
+  disabled={!notaSpesaId || isUpdatingNota}
+  onClick={() => notaSpesaId && onApproveNota?.(notaSpesaId)}
+  className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+    isUpdatingNota
+      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+      : "bg-[#E85C24] text-white hover:bg-[#d04a1b]"
+  }`}
+>
+  {isUpdatingNota ? (
+    <Loader2 className="animate-spin" size={18} />
+  ) : (
+    <CheckCircle2 size={18} />
+  )}
+  Approva Nota
+</button>
         </div>
       </aside>
     </>

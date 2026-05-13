@@ -42,7 +42,13 @@ const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChang
   </SwitchPrimitive.Root>
 );
 
-const ExpenseDashboard: React.FC = () => {
+type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
+
+interface ExpenseDashboardProps {
+  onNavigate?: (page: AppPage) => void;
+}
+
+const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +58,14 @@ const ExpenseDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodId, setSelectedPeriodId] = useState("current");
+  
 
 
   // Navigation & Integration State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [fullDetailId, setFullDetailId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [updatingNotaId, setUpdatingNotaId] = useState<string | null>(null);
   const itemsPerPage = 10;
 
 
@@ -192,7 +200,17 @@ const ExpenseDashboard: React.FC = () => {
   };
 
 const handleApproveNota = async (id: string) => {
+  if (updatingNotaId) return;
+
+  const confirmed = window.confirm(
+    "Sei sicuro di voler approvare questa Nota Spesa?"
+  );
+
+  if (!confirmed) return;
+
   try {
+    setUpdatingNotaId(id);
+
     await Dw_nota_spesesService.update(id, {
       dw_stato: 121950002, // Approvata
     } as any);
@@ -203,11 +221,23 @@ const handleApproveNota = async (id: string) => {
   } catch (err) {
     console.error("Errore durante l'approvazione:", err);
     alert("Errore durante l'approvazione");
+  } finally {
+    setUpdatingNotaId(null);
   }
 };
 
 const handleRejectNota = async (id: string) => {
+  if (updatingNotaId) return;
+
+  const confirmed = window.confirm(
+    "Sei sicuro di voler rifiutare questa Nota Spesa?"
+  );
+
+  if (!confirmed) return;
+
   try {
+    setUpdatingNotaId(id);
+
     await Dw_nota_spesesService.update(id, {
       dw_stato: 121950003, // Rifiutata
     } as any);
@@ -218,17 +248,22 @@ const handleRejectNota = async (id: string) => {
   } catch (err) {
     console.error("Errore durante il rifiuto:", err);
     alert("Errore durante il rifiuto");
+  } finally {
+    setUpdatingNotaId(null);
   }
 };
 
-  if (fullDetailId) {
-    return (
-      <DettaglioFullView 
-        detailId={fullDetailId} 
-        onBack={() => setFullDetailId(null)}
-      />
-    );
-  }
+if (fullDetailId) {
+  return (
+    <DettaglioFullView
+      detailId={fullDetailId}
+      onBack={() => {
+        setFullDetailId(null);
+        setIsDrawerOpen(true);
+      }}
+    />
+  );
+}
 
   const handleExport = () => {
   if (filteredExpenses.length === 0) {
@@ -293,7 +328,7 @@ const handleRejectNota = async (id: string) => {
 };
 
   return (
-    <MainLayout activeTab="dashboard">
+    <MainLayout activeTab="dashboard" onNavigate={onNavigate}>
       <div className="p-10 max-w-[1600px] mx-auto space-y-8">
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
@@ -380,13 +415,6 @@ const handleRejectNota = async (id: string) => {
         className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
       />
     </div>
-
-    <button
-      className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
-      onClick={() => alert("Filtri avanzati non ancora implementati.")}
-    >
-      <Filter size={18} /> Filtri Avanzati
-    </button>
   </div>
 
   <div className="relative w-full max-w-[320px]">
@@ -513,18 +541,22 @@ const handleRejectNota = async (id: string) => {
       </div>
 
       {/* Slide-in Details Drawer */}
-      <DettagliDrawer 
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        notaSpesaId={selectedId}
-        notaSpesaName={expenses.find(e => e.dw_nota_speseid === selectedId)?.dw_name || 'Nota Spesa'}
-        onSelectDetail={(detailId) => {
-          setFullDetailId(detailId);
-          setIsDrawerOpen(false);
-        }}
-        onApproveNota={handleApproveNota}
-        onRejectNota={handleRejectNota}
-      />
+<DettagliDrawer
+  isOpen={isDrawerOpen}
+  onClose={() => setIsDrawerOpen(false)}
+  notaSpesaId={selectedId}
+  notaSpesaName={
+    expenses.find((e) => e.dw_nota_speseid === selectedId)?.dw_name ||
+    "Nota Spesa"
+  }
+  onSelectDetail={(detailId) => {
+    setFullDetailId(detailId);
+    setIsDrawerOpen(false);
+  }}
+  onApproveNota={handleApproveNota}
+  onRejectNota={handleRejectNota}
+  isUpdatingNota={updatingNotaId === selectedId}
+/>
     </MainLayout>
   );
 };
