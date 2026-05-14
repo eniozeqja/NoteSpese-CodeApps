@@ -10,7 +10,6 @@ import {
   Loader2,
   Download,
   AlertCircle,
-  PieChart as PieChartIcon,
   CheckCircle2,
   Clock
 } from 'lucide-react';
@@ -25,8 +24,6 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  BarChart,
-  Bar
 } from 'recharts';
 import { Dw_nota_spesesService } from '../generated/services/Dw_nota_spesesService';
 import { Dw_detaglinotespesasService } from '../generated/services/Dw_detaglinotespesasService';

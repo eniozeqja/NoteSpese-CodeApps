@@ -1,18 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Search,
-  Filter,
   Download,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   Clock,
   XCircle,
-  Calendar,
   Loader2,
+  RefreshCw,
   LayoutDashboard,
   FileEdit,
   ArrowUpRight,
@@ -42,72 +41,6 @@ const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChang
     />
   </SwitchPrimitive.Root>
 );
-
-type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
-
-interface ExpenseDashboardProps {
-  onNavigate?: (page: AppPage) => void;
-}
-
-const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
-  const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
-  const [periods, setPeriods] = useState<any[]>([]);
-  const [selectedPeriodDate, setSelectedPeriodDate] = useState("");  
-
-
-  // Navigation & Integration State
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [fullDetailId, setFullDetailId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [updatingNotaId, setUpdatingNotaId] = useState<string | null>(null);
-  const itemsPerPage = 10;
-
-
-  useEffect(() => {
-    setCurrentPage(1);
-    }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodDate]);
-
-  function getField(record: any, field: string): string {
-    return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
-  }
-
-  const loadExpenses = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await Dw_nota_spesesService.getAll();
-      const data = ((result as any)?.data ?? (result as any)?.value ?? []) as Dw_nota_speses[];
-      setExpenses(data);
-
-      const periodsResult = await Dw_time_periodsService.getAll();
-      const periodsData = ((periodsResult as any)?.data ?? (periodsResult as any)?.value ?? []) as any[];
-      setPeriods(periodsData);
-    } catch (err) {
-      setError("Impossibile caricare le note spese.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => { loadExpenses(); }, []);
-
-  const stats = useMemo(() => {
-    return {
-      bozze: expenses.filter((e) => {
-        const stato = (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() ?? "";
-        return stato === "IN COMPOSIZIONE" || stato === "BOZZA";
-      }).length,
-      attesa: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "IN ATTESA DI APPROVAZIONE").length,
-      approvate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "APPROVATA").length,
-      rifiutate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "RIFIUTATA").length,
-    };
-  }, [expenses]);
 
   function parseDateOnly(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
@@ -160,6 +93,77 @@ function isSamePeriodRange(period: any, range: { start: Date; end: Date }) {
     periodEnd.getTime() === range.end.getTime()
   );
 }
+
+type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
+
+interface ExpenseDashboardProps {
+  onNavigate?: (page: AppPage) => void;
+}
+
+const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
+  const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
+  const [periods, setPeriods] = useState<any[]>([]);
+  const [selectedPeriodDate, setSelectedPeriodDate] = useState("");  
+
+
+  // Navigation & Integration State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [fullDetailId, setFullDetailId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [updatingNotaId, setUpdatingNotaId] = useState<string | null>(null);
+  const itemsPerPage = 10;
+
+
+  useEffect(() => {
+    setCurrentPage(1);
+    }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodDate]);
+
+  function getField(record: any, field: string): string {
+    return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
+  }
+
+const loadExpenses = useCallback(async () => {
+  setIsLoading(true);
+  setError(null);
+
+  try {
+    const result = await Dw_nota_spesesService.getAll();
+    const data = ((result as any)?.data ?? (result as any)?.value ?? []) as Dw_nota_speses[];
+    setExpenses(data);
+
+    const periodsResult = await Dw_time_periodsService.getAll();
+    const periodsData = ((periodsResult as any)?.data ?? (periodsResult as any)?.value ?? []) as any[];
+    setPeriods(periodsData);
+  } catch (err) {
+    console.error("Errore caricamento Note Spese:", err);
+    setError("Impossibile caricare le note spese.");
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
+useEffect(() => {
+  loadExpenses();
+}, [loadExpenses]);
+
+
+  const stats = useMemo(() => {
+    return {
+      bozze: expenses.filter((e) => {
+        const stato = (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() ?? "";
+        return stato === "IN COMPOSIZIONE" || stato === "BOZZA";
+      }).length,
+      attesa: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "IN ATTESA DI APPROVAZIONE").length,
+      approvate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "APPROVATA").length,
+      rifiutate: expenses.filter((e) => (e as any)["dw_stato@OData.Community.Display.V1.FormattedValue"]?.toUpperCase() === "RIFIUTATA").length,
+    };
+  }, [expenses]);
 
  const filteredExpenses = useMemo(() => {
   const selectedRange = getSelectedHalfMonthRange(selectedPeriodDate);
@@ -471,17 +475,41 @@ if (fullDetailId) {
 
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[500px]">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
-            <div className="flex items-center gap-3"><LayoutDashboard size={20} className="text-[#E85C24]" /><h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2></div>
-            <button
-              onClick={handleExport}
-              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
-            >
-            <Download size={18} /> Esporta Note{" "}
-            <ChevronRight size={14} className="rotate-90" />
-            </button>
-          </div>
+  <div className="flex items-center gap-3">
+    <LayoutDashboard size={20} className="text-[#E85C24]" />
+    <h2 className="text-xl font-bold text-slate-800">Elenco Note Spese</h2>
+  </div>
+
+  <div className="flex items-center gap-3">
+    <button
+      onClick={loadExpenses}
+      disabled={isLoading}
+      className={`flex items-center gap-2 px-5 py-2.5 bg-white border rounded-xl text-sm font-bold transition-all ${
+        isLoading
+          ? "border-slate-200 text-slate-300 cursor-not-allowed"
+          : "border-slate-200 text-slate-600 hover:border-[#E85C24] hover:text-[#E85C24]"
+      }`}
+    >
+      <RefreshCw
+        size={18}
+        className={isLoading ? "animate-spin" : ""}
+      />
+    </button>
+
+    <button
+      onClick={handleExport}
+      className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#E85C24] text-[#E85C24] rounded-xl text-sm font-bold hover:bg-orange-50 transition-all"
+    >
+      <Download size={18} /> Esporta Note{" "}
+      <ChevronRight size={14} className="rotate-90" />
+    </button>
+  </div>
+</div>
           <div className="overflow-x-auto flex-1">
-            {isLoading ? (<div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400"><Loader2 className="animate-spin text-[#E85C24]" size={40} /><p className="font-medium animate-pulse">Caricamento dati...</p></div>) : (
+            {isLoading ? (<div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400">
+              <Loader2 className="animate-spin text-[#E85C24]" size={40} />
+              <p className="font-medium animate-pulse">Caricamento dati...</p>
+              </div>) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 text-[11px] uppercase tracking-[0.2em] text-slate-500 font-bold border-b border-slate-100">

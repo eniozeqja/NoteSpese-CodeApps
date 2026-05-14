@@ -1,16 +1,13 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, 
-  BarChart3, 
-  ClipboardCheck, 
+  BarChart3,  
   Settings, 
   ChevronLeft, 
   ChevronRight,
   LogOut,
   Bell,
   HelpCircle,
-  Search
 } from 'lucide-react';
 import {getContext} from "@microsoft/power-apps/app"
 
