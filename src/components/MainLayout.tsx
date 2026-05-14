@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, 
   BarChart3, 
@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Search
 } from 'lucide-react';
+import {getContext} from "@microsoft/power-apps/app"
 
 type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
 
@@ -28,6 +29,31 @@ interface MainLayoutProps {
  */
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const [currentUser, setCurrentUser] = useState({
+    fullName: "Utente",
+    email: "",
+    initials: "U"
+  })
+
+  useEffect(() => {
+    const loadContext = async () => {
+      try{
+        const ctx = await getContext();
+        const fullName = ctx.user.fullName || "Utente";
+        const email = ctx.user.userPrincipalName || "";
+
+        const initials = fullName.split("").filter(Boolean).slice(0,2).map((part) => part[0]).join("").toUpperCase() || "U";
+
+        setCurrentUser({ fullName, email, initials });
+
+        console.log("Context caricato:", { fullName, email, initials });
+      } catch(err){
+        console.error("Errore caricamento contesto:", err);
+      }
+    }
+
+    loadContext();
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -120,12 +146,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
 
             <div className="flex items-center gap-3 pl-2">
                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black text-slate-800 leading-none">Test</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">OPERATORE</p>
+                  <p className="text-sm font-black text-slate-800 leading-none">{currentUser.fullName}</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{currentUser.email}</p>
                </div>
-               <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 shadow-sm overflow-hidden ring-1 ring-slate-100 cursor-pointer">
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Mario" alt="Profile" />
-               </div>
+               <div
+                title={currentUser.email || currentUser.fullName}
+                className="w-10 h-10 rounded-full bg-[#E85C24] text-white border border-orange-200 shadow-sm ring-1 ring-slate-100 cursor-pointer flex items-center justify-center text-sm font-black"
+              >
+                {currentUser.initials}
+              </div>
             </div>
           </div>
         </header>

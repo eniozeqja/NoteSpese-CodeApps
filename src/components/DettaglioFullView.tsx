@@ -213,19 +213,6 @@ const DettaglioFullView: React.FC<DettaglioFullViewProps> = ({
               </div>
             </div>
 
-            <div className="h-px bg-slate-100" />
-
-            <div className="space-y-4">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">
-                Workflow Approvativo
-              </h3>
-              <div className="flex flex-col gap-2">
-                 <span className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 border border-orange-100 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
-                   <Clock size={14} /> In Attesa di Revisione Nota
-                 </span>
-                 <p className="text-[10px] text-slate-400 italic mt-1">L'approvazione deve essere eseguita a livello di Nota Spesa.</p>
-              </div>
-            </div>
           </section>
 
           <div className="bg-slate-900 p-8 rounded-2xl text-white shadow-xl shadow-slate-200">
