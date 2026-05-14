@@ -5,12 +5,8 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { 
   BarChart3, 
   TrendingUp, 
-  TrendingDown, 
   DollarSign, 
   Calendar, 
-  Filter, 
-  Search, 
-  ChevronRight,
   Loader2,
   Download,
   AlertCircle,
@@ -61,7 +57,6 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch both headers and details for full calculation
       const [expensesRes, detailsRes] = await Promise.all([
         Dw_nota_spesesService.getAll(),
         Dw_detaglinotespesasService.getAll()
@@ -313,17 +308,6 @@ const projectData = useMemo(() => {
               </select>
             </div>
           </div>
-
-          <div className="lg:ml-auto relative w-full lg:max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Cerca per commessa o manager..." 
-              className="w-full pl-12 pr-6 py-2.5 bg-slate-50 border border-transparent rounded-full focus:bg-white focus:ring-2 focus:ring-[#E85C24]/10 focus:border-[#E85C24]/30 transition-all outline-none text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
         </section>
 
         {/* Top Metric Cards */}
@@ -436,7 +420,7 @@ const projectData = useMemo(() => {
         <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
           <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-black text-slate-800">Progetti con Maggiore Incidenza</h3>
+              <h3 className="text-lg font-black text-slate-800">Progetti con Maggiore Spese</h3>
               <p className="text-xs text-slate-400 font-medium uppercase tracking-tight">Classifica per volume di spesa accumulato</p>
             </div>
             <button className="flex items-center gap-2 px-5 py-2 bg-slate-50 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-100 transition-all">

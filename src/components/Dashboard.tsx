@@ -26,6 +26,7 @@ import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsServ
 import DettagliDrawer from './DettagliDrawer';
 import DettaglioFullView from './DettaglioFullView';
 import MainLayout from './MainLayout'; // Import the new shared layout
+import HalfMonthPicker from "./HalfMonthPicker";
 
 /**
  * Modern Radix-style Switch Component
@@ -57,8 +58,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
   const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
   const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
   const [periods, setPeriods] = useState<any[]>([]);
-  const [selectedPeriodId, setSelectedPeriodId] = useState("current");
-  
+  const [selectedPeriodDate, setSelectedPeriodDate] = useState("");  
 
 
   // Navigation & Integration State
@@ -71,7 +71,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodId]);
+    }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodDate]);
 
   function getField(record: any, field: string): string {
     return record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—";
@@ -109,48 +109,110 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({ onNavigate }) => {
     };
   }, [expenses]);
 
-  const filteredExpenses = useMemo(() => {
-    const today = new Date();
-    const currentPeriod = periods.find((period) => {
-      const start = new Date(period.dw_periodoinizio);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(period.dw_periodofine);
-      end.setHours(23, 59, 59, 999);
-      return today >= start && today <= end;
-    });
+  function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 
-    return expenses.filter((e) => {
-      const record = e as any;
-      const dipendente = getField(record, "dw_dipendente").toLowerCase();
-      const commessa = getField(record, "dw_codicedicommessa").toLowerCase();
-      const statoFull = record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
-      const statoUpper = statoFull.toUpperCase();
-      const matchesSearch = dipendente.includes(searchTerm.toLowerCase()) || commessa.includes(searchTerm.toLowerCase());
-      const isDraftStatus = statoUpper === "IN COMPOSIZIONE" || statoUpper === "BOZZA";
-      const matchesToggle = showOnlyDrafts ? isDraftStatus : !isDraftStatus;
-      const statusFilterUpper = statusFilter.toUpperCase();
-      const matchesStatusDropdown = statusFilter === "Tutti gli stati" || statoUpper === statusFilterUpper;
-      const notePeriodId = record._dw_periodotempo_value;
-      
-      let matchesPeriod = true;
-      if (selectedPeriodId === "current") {
-        matchesPeriod = !!currentPeriod && notePeriodId === currentPeriod.dw_time_periodid;
-      } else if (selectedPeriodId === "previous") {
-        matchesPeriod = !!currentPeriod && periods.some(p => {
-            const pEnd = new Date(p.dw_periodofine);
-            pEnd.setHours(23, 59, 59, 999);
-            const cStart = new Date(currentPeriod.dw_periodoinizio);
-            cStart.setHours(0, 0, 0, 0);
-            return p.dw_time_periodid === notePeriodId && pEnd < cStart;
-        });
-      } else if (selectedPeriodId === "all") {
-        matchesPeriod = true;
-      } else {
-        matchesPeriod = notePeriodId === selectedPeriodId;
-      }
-      return matchesSearch && matchesToggle && matchesStatusDropdown && matchesPeriod;
-    });
-  }, [expenses, periods, searchTerm, showOnlyDrafts, statusFilter, selectedPeriodId]);
+function normalizeStartOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+function normalizeEndOfDay(date: Date): Date {
+  const result = new Date(date);
+  result.setHours(23, 59, 59, 999);
+  return result;
+}
+
+function getSelectedHalfMonthRange(value: string) {
+  if (!value) return null;
+
+  const selectedDate = parseDateOnly(value);
+  const year = selectedDate.getFullYear();
+  const month = selectedDate.getMonth();
+  const day = selectedDate.getDate();
+
+  if (day === 1) {
+    return {
+      start: normalizeStartOfDay(new Date(year, month, 1)),
+      end: normalizeEndOfDay(new Date(year, month, 15)),
+    };
+  }
+
+  if (day === 16) {
+    return {
+      start: normalizeStartOfDay(new Date(year, month, 16)),
+      end: normalizeEndOfDay(new Date(year, month + 1, 0)),
+    };
+  }
+
+  return null;
+}
+
+function isSamePeriodRange(period: any, range: { start: Date; end: Date }) {
+  const periodStart = normalizeStartOfDay(new Date(period.dw_periodoinizio));
+  const periodEnd = normalizeEndOfDay(new Date(period.dw_periodofine));
+
+  return (
+    periodStart.getTime() === range.start.getTime() &&
+    periodEnd.getTime() === range.end.getTime()
+  );
+}
+
+ const filteredExpenses = useMemo(() => {
+  const selectedRange = getSelectedHalfMonthRange(selectedPeriodDate);
+
+  const selectedPeriod = selectedRange
+    ? periods.find((period) => isSamePeriodRange(period, selectedRange))
+    : null;
+
+  return expenses.filter((e) => {
+    const record = e as any;
+
+    const dipendente = getField(record, "dw_dipendente").toLowerCase();
+    const commessa = getField(record, "dw_codicedicommessa").toLowerCase();
+
+    const statoFull =
+      record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? "";
+    const statoUpper = statoFull.toUpperCase();
+
+    const matchesSearch =
+      dipendente.includes(searchTerm.toLowerCase()) ||
+      commessa.includes(searchTerm.toLowerCase());
+
+    const isDraftStatus =
+      statoUpper === "IN COMPOSIZIONE" || statoUpper === "BOZZA";
+
+    const matchesToggle = showOnlyDrafts ? isDraftStatus : !isDraftStatus;
+
+    const statusFilterUpper = statusFilter.toUpperCase();
+
+    const matchesStatusDropdown =
+      statusFilter === "Tutti gli stati" || statoUpper === statusFilterUpper;
+
+    const notePeriodId = record._dw_periodotempo_value;
+
+    const matchesPeriod = selectedPeriodDate
+      ? !!selectedPeriod && notePeriodId === selectedPeriod.dw_time_periodid
+      : true;
+
+    return (
+      matchesSearch &&
+      matchesToggle &&
+      matchesStatusDropdown &&
+      matchesPeriod
+    );
+  });
+}, [
+  expenses,
+  periods,
+  searchTerm,
+  showOnlyDrafts,
+  statusFilter,
+  selectedPeriodDate,
+]);
 
     const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
     const paginatedExpenses = useMemo(() => {
@@ -386,35 +448,10 @@ if (fullDetailId) {
       </div>
     </div>
 
-    <div className="relative w-full max-w-[200px]">
-      <select
-        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none cursor-pointer hover:border-[#E85C24] transition-all"
-        value={selectedPeriodId}
-        onChange={(e) => setSelectedPeriodId(e.target.value)}
-      >
-        <option value="current">Periodo corrente</option>
-        <option value="previous">Periodi precedenti</option>
-        <option value="all">Tutti i periodi</option>
-
-        {periods
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b.dw_periodoinizio).getTime() -
-              new Date(a.dw_periodoinizio).getTime()
-          )
-          .map((p) => (
-            <option key={p.dw_time_periodid} value={p.dw_time_periodid}>
-              {p.dw_name}
-            </option>
-          ))}
-      </select>
-
-      <Calendar
-        size={16}
-        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-      />
-    </div>
+<HalfMonthPicker
+  value={selectedPeriodDate}
+  onChange={setSelectedPeriodDate}
+/>
   </div>
 
   <div className="relative w-full max-w-[320px]">
