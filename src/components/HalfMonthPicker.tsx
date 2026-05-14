@@ -24,7 +24,7 @@ function formatDisplayValue(value: string): string {
   }
 
   if (day === 16) {
-    return `16–fine mese/${String(month).padStart(2, "0")}/${year}`;
+    return `16–fine/${String(month).padStart(2, "0")}/${year}`;
   }
 
   return value;

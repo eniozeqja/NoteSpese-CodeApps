@@ -1,3 +1,6 @@
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from 'react';
 import { 
   LayoutDashboard, 
@@ -10,6 +13,7 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import {getContext} from "@microsoft/power-apps/app"
+import { Dw_nota_spesesService } from '@/generated';
 
 type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
 
@@ -31,6 +35,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
     email: "",
     initials: "U"
   })
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [latestCreatedOn, setLatestCreatedOn] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [latestNotifications, setLatestNotifications] = useState<any[]>([]);
 
   useEffect(() => {
     const loadContext = async () => {
@@ -51,6 +59,52 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
 
     loadContext();
   }, []);
+
+  useEffect(() => {
+    let intervalId: number | undefined;
+
+    const checkForNewNote = async () => {
+      try{
+        const result = await Dw_nota_spesesService.getAll();
+        const notes = ((result as any)?.data?? (result as any)?.value ?? []) as any[];
+
+        if(!notes.length) return;
+
+        const sortedNotes = notes.filter((note) => note.createdon).sort((a, b) => new Date(b.createdon).getTime() - new Date(a.createdon).getTime());
+
+        const newestCreatedOn = sortedNotes[0]?.createdon;
+
+        if(!newestCreatedOn) return;
+
+        if(!latestCreatedOn){
+          setLatestCreatedOn(newestCreatedOn);
+          return;
+        }
+        const newNotes = sortedNotes.filter((note) => 
+        new Date(note.createdon).getTime() > new Date(latestCreatedOn).getTime())
+
+        if(newNotes.length > 0){
+          setNotificationCount((prev) => prev + newNotes.length)
+          setLatestNotifications((prev) => [...newNotes, ...prev].slice(0,5))
+          setLatestCreatedOn(newestCreatedOn);
+        }
+      } catch(err){
+        console.error("Errore controllo nuove note spese:", err);
+      }
+    }
+
+    checkForNewNote();
+
+    intervalId = window.setInterval(() => {
+      checkForNewNote();
+     }, 30000); // Controlla ogni minuto
+
+     return () => {
+      if(intervalId){
+        window.clearInterval(intervalId)
+      }
+     }
+    }, [latestCreatedOn]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -132,10 +186,58 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3 pr-6 border-r border-slate-200">
-               <button className="p-2 text-slate-400 hover:text-[#E85C24] hover:bg-orange-50 rounded-lg transition-all relative">
-                  <Bell size={20} />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-               </button>
+               <div className="relative">
+  <button
+    onClick={() => {
+      setShowNotifications((prev) => !prev);
+      setNotificationCount(0);
+    }}
+    className="p-2 text-slate-400 hover:text-[#E85C24] hover:bg-orange-50 rounded-lg transition-all relative"
+    title="Notifiche"
+  >
+    <Bell size={20} />
+
+    {notificationCount > 0 && (
+      <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center">
+        {notificationCount}
+      </span>
+    )}
+  </button>
+
+  {showNotifications && (
+    <div className="absolute right-0 top-12 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <p className="text-sm font-black text-slate-800">Notifiche</p>
+        <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
+          Nuove note spese
+        </p>
+      </div>
+
+      <div className="max-h-80 overflow-y-auto">
+        {latestNotifications.length === 0 ? (
+          <div className="px-5 py-6 text-sm text-slate-400 text-center">
+            Nessuna nuova notifica.
+          </div>
+        ) : (
+          latestNotifications.map((note) => (
+            <div
+              key={note.dw_nota_speseid}
+              className="px-5 py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors"
+            >
+              <p className="text-sm font-bold text-slate-800">
+                {note.dw_name ?? "Nuova Nota Spesa"}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Creata il{" "}
+                {new Date(note.createdon).toLocaleString("it-IT")}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )}
+</div>
                <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
                   <HelpCircle size={20} />
                </button>
