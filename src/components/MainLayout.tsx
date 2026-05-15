@@ -1,7 +1,7 @@
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   LayoutDashboard, 
   BarChart3,  
@@ -11,8 +11,12 @@ import {
   LogOut,
   Bell,
   HelpCircle,
+  X,
+  Clock,
+  CheckCircle2,
+  Inbox
 } from 'lucide-react';
-import {getContext} from "@microsoft/power-apps/app"
+import { getContext } from "@microsoft/power-apps/app";
 import { Dw_nota_spesesService } from '@/generated';
 
 type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
@@ -23,40 +27,53 @@ interface MainLayoutProps {
   onNavigate?: (page: AppPage) => void;
 }
 
-/**
- * MainLayout Component
- * Updated: Sidebar color now matches the dashboard (slate-50/white base) to support future themes.
- * TopBar: Displays the page title "Note Spese - Operatore" instead of the search bar.
- */
 const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate }) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentUser, setCurrentUser] = useState({
     fullName: "Utente",
     email: "",
     initials: "U"
-  })
+  });
   const [notificationCount, setNotificationCount] = useState(0);
   const [latestCreatedOn, setLatestCreatedOn] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [latestNotifications, setLatestNotifications] = useState<any[]>([]);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Close notifications when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const removeNotifications = (noteId: string) => {
+    setLatestNotifications((prev) => prev.filter((note) => note.dw_nota_speseid !== noteId));
+    setNotificationCount((prev) => Math.max(prev - 1, 0));
+  };
+
+  const clearAllNotifications = () => {
+    setLatestNotifications([]);
+    setNotificationCount(0);
+    setShowNotifications(false);
+  };
 
   useEffect(() => {
     const loadContext = async () => {
-      try{
+      try {
         const ctx = await getContext();
         const fullName = ctx.user.fullName || "Utente";
         const email = ctx.user.userPrincipalName || "";
-
-        const initials = fullName.split("").filter(Boolean).slice(0,2).map((part) => part[0]).join("").toUpperCase() || "U";
-
+        const initials = fullName.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U";
         setCurrentUser({ fullName, email, initials });
-
-        console.log("Context caricato:", { fullName, email, initials });
-      } catch(err){
+      } catch (err) {
         console.error("Errore caricamento contesto:", err);
       }
-    }
-
+    };
     loadContext();
   }, []);
 
@@ -64,47 +81,46 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
     let intervalId: number | undefined;
 
     const checkForNewNote = async () => {
-      try{
+      try {
         const result = await Dw_nota_spesesService.getAll();
-        const notes = ((result as any)?.data?? (result as any)?.value ?? []) as any[];
+        const notes = ((result as any)?.data ?? (result as any)?.value ?? []) as any[];
 
-        if(!notes.length) return;
+        if (!notes.length) return;
 
-        const sortedNotes = notes.filter((note) => note.createdon).sort((a, b) => new Date(b.createdon).getTime() - new Date(a.createdon).getTime());
+        const sortedNotes = notes
+          .filter((note) => note.createdon)
+          .sort((a, b) => new Date(b.createdon).getTime() - new Date(a.createdon).getTime());
 
         const newestCreatedOn = sortedNotes[0]?.createdon;
 
-        if(!newestCreatedOn) return;
+        if (!newestCreatedOn) return;
 
-        if(!latestCreatedOn){
+        if (!latestCreatedOn) {
           setLatestCreatedOn(newestCreatedOn);
           return;
         }
-        const newNotes = sortedNotes.filter((note) => 
-        new Date(note.createdon).getTime() > new Date(latestCreatedOn).getTime())
 
-        if(newNotes.length > 0){
-          setNotificationCount((prev) => prev + newNotes.length)
-          setLatestNotifications((prev) => [...newNotes, ...prev].slice(0,5))
+        const newNotes = sortedNotes.filter((note) => 
+          new Date(note.createdon).getTime() > new Date(latestCreatedOn).getTime()
+        );
+
+        if (newNotes.length > 0) {
+          setNotificationCount((prev) => prev + newNotes.length);
+          setLatestNotifications((prev) => [...newNotes, ...prev].slice(0, 8));
           setLatestCreatedOn(newestCreatedOn);
         }
-      } catch(err){
+      } catch (err) {
         console.error("Errore controllo nuove note spese:", err);
       }
-    }
+    };
 
     checkForNewNote();
+    intervalId = window.setInterval(checkForNewNote, 5000); // 5s interval for performance
 
-    intervalId = window.setInterval(() => {
-      checkForNewNote();
-     }, 30000); // Controlla ogni minuto
-
-     return () => {
-      if(intervalId){
-        window.clearInterval(intervalId)
-      }
-     }
-    }, [latestCreatedOn]);
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [latestCreatedOn]);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -114,13 +130,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      {/* Minimizable Sidebar - Updated to light theme colors */}
+      {/* Sidebar */}
       <aside 
         className={`fixed left-0 top-0 h-screen bg-white border-r border-slate-200 transition-all duration-300 ease-in-out z-50 flex flex-col ${
           isMinimized ? 'w-20' : 'w-64'
         }`}
       >
-        {/* Sidebar Header / Logo */}
         <div className="h-20 flex items-center px-6 border-b border-slate-100 overflow-hidden shrink-0">
           <div className="w-9 h-9 bg-[#E85C24] rounded-lg flex items-center justify-center text-white shadow-md shrink-0 font-black tracking-tighter">
             AG
@@ -133,21 +148,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
           )}
         </div>
 
-        {/* Navigation Menu */}
         <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
-<button
-  key={item.id}
-  onClick={() => onNavigate?.(item.id as AppPage)}
-  className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
-    isActive
-      ? "bg-orange-50 text-[#E85C24] font-bold"
-      : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-  }`}
->
+              <button
+                key={item.id}
+                onClick={() => onNavigate?.(item.id as AppPage)}
+                className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
+                  isActive
+                    ? "bg-orange-50 text-[#E85C24] font-bold"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                }`}
+              >
                 <Icon size={20} className={`shrink-0 ${isActive ? 'text-[#E85C24]' : 'group-hover:scale-110 transition-transform'}`} />
                 {!isMinimized && <span className="text-sm truncate">{item.label}</span>}
               </button>
@@ -155,7 +169,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
           })}
         </nav>
 
-        {/* Sidebar Footer */}
         <div className="p-3 border-t border-slate-100 space-y-2">
           <button 
             onClick={() => setIsMinimized(!isMinimized)}
@@ -178,7 +191,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
           isMinimized ? 'pl-20' : 'pl-64'
         }`}
       >
-        {/* Global TopBar - Updated with Page Title */}
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm">
           <div className="flex items-center gap-4 flex-1">
              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Note Spese - Operatore</h1>
@@ -186,72 +198,106 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, activeTab, onNavigate
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3 pr-6 border-r border-slate-200">
-               <div className="relative">
-  <button
-    onClick={() => {
-      setShowNotifications((prev) => !prev);
-      setNotificationCount(0);
-    }}
-    className="p-2 text-slate-400 hover:text-[#E85C24] hover:bg-orange-50 rounded-lg transition-all relative"
-    title="Notifiche"
-  >
-    <Bell size={20} />
+               {/* Notifications Popover */}
+               <div className="relative" ref={notificationRef}>
+                  <button
+                    onClick={() => setShowNotifications((prev) => !prev)}
+                    className={`p-2 rounded-lg transition-all relative ${showNotifications ? 'bg-orange-50 text-[#E85C24]' : 'text-slate-400 hover:text-[#E85C24] hover:bg-orange-50'}`}
+                    title="Notifiche"
+                  >
+                    <Bell size={22} className={notificationCount > 0 ? "animate-pulse" : ""} />
+                    {notificationCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                        {notificationCount}
+                      </span>
+                    )}
+                  </button>
 
-    {notificationCount > 0 && (
-      <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center">
-        {notificationCount}
-      </span>
-    )}
-  </button>
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-3 w-80 md:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                      {/* Header */}
+                      <div className="px-5 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-black text-slate-800">Notifiche</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                            {notificationCount} Nuovi aggiornamenti
+                          </p>
+                        </div>
+                        {latestNotifications.length > 0 && (
+                          <button
+                            onClick={clearAllNotifications}
+                            className="text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-red-500 transition-colors bg-white px-2 py-1 rounded-md border border-slate-100 shadow-sm"
+                          >
+                            Cancella tutto
+                          </button>
+                        )}
+                      </div>
 
-  {showNotifications && (
-    <div className="absolute right-0 top-12 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <p className="text-sm font-black text-slate-800">Notifiche</p>
-        <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">
-          Nuove note spese
-        </p>
-      </div>
+                      {/* Notification List */}
+                      <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+                        {latestNotifications.length === 0 ? (
+                          <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-3">
+                            <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center">
+                               <Inbox size={24} className="opacity-20" />
+                            </div>
+                            <p className="text-xs font-medium uppercase tracking-widest opacity-60">Nessuna nuova notifica</p>
+                          </div>
+                        ) : (
+                          latestNotifications.map((note) => (
+                            <div
+                              key={note.dw_nota_speseid}
+                              className="px-5 py-4 border-b border-slate-50 hover:bg-slate-50/80 transition-colors flex items-start gap-4 relative group"
+                            >
+                              <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0 border border-orange-100 shadow-sm">
+                                 <Clock size={18} className="text-[#E85C24]" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-slate-800 leading-tight">
+                                  {note.dw_name ?? "Nuova Nota Spesa"}
+                                </p>
+                                <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                                  <Clock size={10} className="opacity-50" /> {new Date(note.createdon).toLocaleString("it-IT", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeNotifications(note.dw_nota_speseid);
+                                }}
+                                className="w-6 h-6 flex items-center justify-center rounded-full text-slate-300 hover:text-white hover:bg-red-500 transition-all opacity-0 group-hover:opacity-100"
+                                title="Rimuovi"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
 
-      <div className="max-h-80 overflow-y-auto">
-        {latestNotifications.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-slate-400 text-center">
-            Nessuna nuova notifica.
-          </div>
-        ) : (
-          latestNotifications.map((note) => (
-            <div
-              key={note.dw_nota_speseid}
-              className="px-5 py-4 border-b border-slate-100 hover:bg-slate-50 transition-colors"
-            >
-              <p className="text-sm font-bold text-slate-800">
-                {note.dw_name ?? "Nuova Nota Spesa"}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Creata il{" "}
-                {new Date(note.createdon).toLocaleString("it-IT")}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  )}
-</div>
-               <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all">
-                  <HelpCircle size={20} />
+                      {/* Footer */}
+                      {latestNotifications.length > 0 && (
+                        <div className="p-3 bg-white border-t border-slate-100 text-center">
+                           <button className="text-[10px] font-black uppercase tracking-widest text-[#E85C24] hover:underline">
+                              Vedi tutte le note spese
+                           </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+               </div>
+               
+               <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Supporto">
+                  <HelpCircle size={22} />
                </button>
             </div>
 
-            <div className="flex items-center gap-3 pl-2">
+            <div className="flex items-center gap-3 pl-2 group cursor-pointer" title={currentUser.email || currentUser.fullName}>
                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-black text-slate-800 leading-none">{currentUser.fullName}</p>
+                  <p className="text-sm font-black text-slate-800 leading-none group-hover:text-[#E85C24] transition-colors">{currentUser.fullName}</p>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{currentUser.email}</p>
                </div>
-               <div
-                title={currentUser.email || currentUser.fullName}
-                className="w-10 h-10 rounded-full bg-[#E85C24] text-white border border-orange-200 shadow-sm ring-1 ring-slate-100 cursor-pointer flex items-center justify-center text-sm font-black"
-              >
+               <div className="w-10 h-10 rounded-full bg-[#E85C24] text-white border-2 border-white shadow-md ring-1 ring-orange-100 flex items-center justify-center text-sm font-black transform group-hover:scale-105 transition-transform">
                 {currentUser.initials}
               </div>
             </div>
