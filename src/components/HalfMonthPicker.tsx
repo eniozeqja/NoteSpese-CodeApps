@@ -104,17 +104,17 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className="w-[240px] flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 outline-none hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
+          className="w-[240px] flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-200 outline-none hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
         >
           <span>{formatDisplayValue(value)}</span>
-          <Calendar size={16} className="text-slate-400" />
+          <Calendar size={16} className="text-slate-400 dark:text-slate-500" />
         </button>
 
         {value && (
           <button
             type="button"
             onClick={() => onChange("")}
-            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-[#E85C24] hover:border-[#E85C24] transition-all"
+            className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 hover:text-[#E85C24] hover:border-[#E85C24] transition-all"
             title="Cancella filtro periodo"
           >
             <X size={16} />
@@ -123,24 +123,24 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 top-12 z-50 w-[300px] bg-white border border-slate-200 rounded-2xl shadow-xl p-4">
+        <div className="absolute left-0 top-12 z-50 w-[300px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl dark:shadow-black/30 p-4">
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={goToPreviousMonth}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#E85C24] transition-all"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#E85C24] transition-all"
             >
               <ChevronLeft size={18} />
             </button>
 
-            <div className="text-sm font-black text-slate-800">
+            <div className="text-sm font-black text-slate-800 dark:text-slate-100">
               {monthNames[visibleMonth]} {visibleYear}
             </div>
 
             <button
               type="button"
               onClick={goToNextMonth}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-50 hover:text-[#E85C24] transition-all"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-[#E85C24] transition-all"
             >
               <ChevronRight size={18} />
             </button>
@@ -150,7 +150,7 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
             {weekDays.map((day) => (
               <div
                 key={day}
-                className="h-8 flex items-center justify-center text-[10px] font-black text-slate-400"
+                className="h-8 flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-slate-500"
               >
                 {day}
               </div>
@@ -183,8 +183,8 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
                     isSelected
                       ? "bg-[#E85C24] text-white shadow-sm"
                       : isSelectable
-                        ? "bg-orange-50 text-[#E85C24] hover:bg-[#E85C24] hover:text-white"
-                        : "bg-slate-50 text-slate-300 cursor-not-allowed opacity-60"
+                        ? "bg-orange-50 dark:bg-orange-950/30 text-[#E85C24] hover:bg-[#E85C24] hover:text-white"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-70"
                   }`}
                 >
                   {day}
@@ -193,7 +193,7 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
             })}
           </div>
 
-          <p className="mt-4 text-[11px] text-slate-400 font-medium">
+          <p className="mt-4 text-[11px] text-slate-400 dark:text-slate-500 font-medium">
             Puoi selezionare solo il giorno 1 o il giorno 16 del mese.
           </p>
         </div>

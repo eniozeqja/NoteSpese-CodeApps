@@ -26,10 +26,6 @@ interface ExpenseDetailCardProps {
   onClick?: (id: string) => void;
 }
 
-/**
- * ExpenseDetailCard Component
- * Modern card for expense line items. Selection only; approval is handled at parent level.
- */
 const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
   detail,
   onClick,
@@ -39,12 +35,12 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
   const renderReceiptPreview = () => {
     if (!detail.hasReceipt) {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 gap-1">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 gap-1">
           <Paperclip
             size={24}
-            className="text-slate-400 group-hover:text-[#E85C24] transition-colors"
+            className="text-slate-400 dark:text-slate-500 group-hover:text-[#E85C24] transition-colors"
           />
-          <span className="text-[9px] font-black text-slate-400 uppercase">
+          <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
             No file
           </span>
         </div>
@@ -53,7 +49,7 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
 
     if (fileType === "image") {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 gap-1 border-2 border-dashed border-slate-200">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 gap-1 border-2 border-dashed border-slate-200 dark:border-slate-700">
           <ImageIcon size={26} className="text-[#E85C24]" />
           <span className="text-[9px] font-black text-[#E85C24] uppercase tracking-tighter">
             Image
@@ -64,7 +60,7 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
 
     if (fileType === "pdf") {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50/50 gap-1 border-2 border-dashed border-orange-100">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50/50 dark:bg-orange-950/30 gap-1 border-2 border-dashed border-orange-100 dark:border-orange-900/50">
           <FileText size={28} className="text-[#E85C24] drop-shadow-sm" />
           <span className="text-[9px] font-black text-[#E85C24] uppercase tracking-tighter">
             PDF
@@ -74,12 +70,12 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
     }
 
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 gap-1">
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-800 gap-1">
         <Paperclip
           size={24}
-          className="text-slate-400 group-hover:text-[#E85C24] transition-colors"
+          className="text-slate-400 dark:text-slate-500 group-hover:text-[#E85C24] transition-colors"
         />
-        <span className="text-[9px] font-black text-slate-400 uppercase">
+        <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
           File
         </span>
       </div>
@@ -89,21 +85,21 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
   return (
     <div
       onClick={() => onClick?.(detail.id)}
-      className="group relative bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-[#E85C24] transition-all cursor-pointer flex gap-5 overflow-hidden"
+      className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-sm hover:shadow-md dark:hover:shadow-black/20 hover:border-[#E85C24] transition-all cursor-pointer flex gap-5 overflow-hidden"
     >
-      <div className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-100 overflow-hidden shadow-inner bg-slate-50">
+      <div className="flex-shrink-0 w-20 h-20 rounded-xl border border-slate-100 dark:border-slate-700 overflow-hidden shadow-inner bg-slate-50 dark:bg-slate-800">
         {renderReceiptPreview()}
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
         <div>
           <div className="flex justify-between items-start gap-2">
-            <h4 className="text-sm font-bold text-slate-800 truncate group-hover:text-[#E85C24] transition-colors">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-[#E85C24] transition-colors">
               {detail.name}
             </h4>
 
             <div className="text-right">
-              <span className="text-sm font-black text-slate-900 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">
+              <span className="text-sm font-black text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-700">
                 {detail.currency}{" "}
                 {detail.amount.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
@@ -114,15 +110,15 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
           </div>
 
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <Tag size={13} className="text-[#E85C24]/60" />
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-tight">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              <Tag size={13} className="text-[#E85C24]/70" />
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-tight">
                 {detail.category}
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <Calendar size={13} className="text-slate-400" />
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              <Calendar size={13} className="text-slate-400 dark:text-slate-500" />
               <span className="text-[11px] font-medium">
                 {detail.createdOn}
               </span>
@@ -130,14 +126,14 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
           </div>
 
           {detail.fileName && (
-            <p className="mt-2 text-[10px] text-slate-400 truncate">
+            <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 truncate">
               {detail.fileName}
             </p>
           )}
         </div>
 
         <div className="mt-3 flex items-center justify-end">
-          <span className="text-[10px] font-black text-slate-400 group-hover:text-[#E85C24] flex items-center gap-1 transition-colors uppercase tracking-widest">
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 group-hover:text-[#E85C24] flex items-center gap-1 transition-colors uppercase tracking-widest">
             Vedi Voce{" "}
             <ChevronRight
               size={14}

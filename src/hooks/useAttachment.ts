@@ -48,7 +48,7 @@ export function useAttachment(record: Dw_detaglinotespesas | null) {
     setLoading(true);
 
     Dw_detaglinotespesasService.downloadReceipt(id)
-      .then((res) => {
+      .then(async (res) => {
         if (cancelled) return;
 
         const raw = (res as any)?.data ?? (res as any)?.value;
@@ -57,27 +57,29 @@ export function useAttachment(record: Dw_detaglinotespesas | null) {
           throw new Error("No file data returned.");
         }
 
-let blob: Blob;
+let bytes: Uint8Array
+ 
+    if (raw instanceof Uint8Array) {
+      bytes = raw
+    } else if (raw instanceof ArrayBuffer) {
+      bytes = new Uint8Array(raw)
+    } else if (raw instanceof Blob) {
+      bytes = new Uint8Array(await raw.arrayBuffer())
+    } else if (ArrayBuffer.isView(raw)) {
+      bytes = new Uint8Array(raw.buffer as ArrayBuffer)
+    } else {
+      return
+    }
+ 
+    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: getMimeType(fileName) });
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setAttachmentUrl(reader.result as string)
+    }
+    reader.readAsDataURL(blob)
+  })
+ 
 
-if (raw instanceof Blob) {
-  blob = raw;
-} else if (raw instanceof Uint8Array) {
-  const arrayBuffer = raw.buffer.slice(
-    raw.byteOffset,
-    raw.byteOffset + raw.byteLength
-  ) as ArrayBuffer;
-
-  blob = new Blob([arrayBuffer], { type: getMimeType(fileName) });
-} else if (raw instanceof ArrayBuffer) {
-  blob = new Blob([raw], { type: getMimeType(fileName) });
-} else {
-  throw new Error("Unsupported file data format.");
-}
-
-        const url = URL.createObjectURL(blob);
-        blobRef.current = url;
-        setAttachmentUrl(url);
-      })
       .catch((err) => {
         console.error("Download receipt failed:", err);
         if (!cancelled) {
