@@ -84,7 +84,6 @@ export class Dw_detaglinotespesasService {
     return result;
   }
 
-   
   public static async downloadReceipt(id: string): Promise<IOperationResult<Uint8Array>> {
     return await Dw_detaglinotespesasService.client.downloadFileFromRecord(
       Dw_detaglinotespesasService.dataSourceName,

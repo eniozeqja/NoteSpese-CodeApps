@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "appId": "31e98ed6-c55a-452a-9d0e-d9d629d61a44",
-  "appDisplayName": "CodeApps Note Spese",
+  "appId": "0360ea26-671d-458d-adf2-7623762ddfb7",
+  "appDisplayName": "NoteSpese Enio",
   "region": "prod",
   "environmentId": "31f89872-1254-e216-b1f9-8b9205123751",
   "description": " ",
@@ -17,21 +17,21 @@
           "entitySetName": "dw_nota_speses",
           "logicalName": "dw_nota_spese"
         },
-        "contatti": {
-          "entitySetName": "contacts",
-          "logicalName": "contact"
-        },
         "detaglinotespesas": {
           "entitySetName": "dw_detaglinotespesas",
           "logicalName": "dw_detaglinotespesa"
+        },
+        "time_periods": {
+          "entitySetName": "dw_time_periods",
+          "logicalName": "dw_time_period"
         },
         "projectcommessas": {
           "entitySetName": "dw_projectcommessas",
           "logicalName": "dw_projectcommessa"
         },
-        "time_periods": {
-          "entitySetName": "dw_time_periods",
-          "logicalName": "dw_time_period"
+        "contatti": {
+          "entitySetName": "contacts",
+          "logicalName": "contact"
         }
       },
       "environmentVariableName": ""
