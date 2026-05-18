@@ -304,6 +304,7 @@ export interface ContactsBase {
   childrensnames?: string;
   company?: string;
   contactid: string;
+  "cr098_RuoloSicurezza@odata.bind"?: string;
   creditlimit?: number;
   creditonhold?: boolean;
   customersizecode?: Contactscustomersizecode;
@@ -421,6 +422,7 @@ export interface Contacts extends ContactsBase {
   aging90?: number;
   aging90_base?: number;
   annualincome_base?: number;
+  cr098_ruolosicurezzaname?: string;
   createdbyexternalpartyname?: string;
   createdbyexternalpartyyominame?: string;
   createdbyname?: string;
@@ -499,6 +501,8 @@ export interface Contacts extends ContactsBase {
   yomifullname?: string;
   accountid?: object;
   _accountid_value?: string;
+  cr098_ruolosicurezza?: object;
+  _cr098_ruolosicurezza_value?: string;
   createdby?: object;
   _createdby_value?: string;
   createdbyexternalparty?: object;

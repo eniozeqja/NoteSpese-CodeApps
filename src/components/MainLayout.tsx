@@ -7,7 +7,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   Bell,
   HelpCircle,
   X,
@@ -235,11 +234,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             {!isMinimized && (
               <span className="font-bold text-sm">Riduci Menu</span>
             )}
-          </button>
-
-          <button className="w-full flex items-center gap-4 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all">
-            <LogOut size={20} />
-            {!isMinimized && <span className="font-bold text-sm">Esci</span>}
           </button>
         </div>
       </aside>

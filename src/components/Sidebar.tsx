@@ -31,7 +31,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'approvals', label: 'Approvazioni', icon: ClipboardCheck },
     { id: 'settings', label: 'Impostazioni', icon: Settings },
   ];
 

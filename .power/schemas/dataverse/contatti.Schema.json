@@ -1441,6 +1441,22 @@
           "required": true,
           "x-ms-keyType": "primary"
         },
+        "cr098_ruolosicurezza": {
+          "type": "string",
+          "title": "RuoloSicurezza",
+          "x-ms-dataverse-attribute": "cr098_ruolosicurezza",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "cr098_RuoloSicurezza"
+        },
+        "cr098_ruolosicurezzaname": {
+          "type": "string",
+          "title": "cr098_ruolosicurezzaname",
+          "x-ms-dataverse-attribute": "cr098_ruolosicurezzaname",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "cr098_RuoloSicurezzaName",
+          "x-ms-read-only": true,
+          "maxLength": 100
+        },
         "createdby": {
           "type": "string",
           "title": "Autore",
