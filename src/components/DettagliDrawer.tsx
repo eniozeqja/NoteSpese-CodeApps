@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { getReceiptType } from "../services/receiptService";
 import React, { useEffect, useState, useMemo } from "react";
@@ -20,6 +19,7 @@ interface DettagliDrawerProps {
   isUpdatingNota?: boolean;
   notaSpesaId: string | null;
   notaSpesaName: string;
+  notaSpesaStatus?: string;
   onSelectDetail: (detailId: string) => void;
   onApproveNota?: (id: string) => void;
   onRejectNota?: (id: string) => void;
@@ -30,6 +30,7 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
   onClose,
   notaSpesaId,
   notaSpesaName,
+  notaSpesaStatus,
   onSelectDetail,
   onApproveNota,
   onRejectNota,
@@ -38,6 +39,14 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
   const [details, setDetails] = useState<Dw_detaglinotespesas[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const normalizedStatus = notaSpesaStatus?.toUpperCase();
+
+  const isApproved = normalizedStatus === "APPROVATA";
+  const isRejected = normalizedStatus === "RIFIUTATA";
+
+  const approveDisabled = !notaSpesaId || isUpdatingNota || isApproved
+  const rejectDisabled = !notaSpesaId || isUpdatingNota || isRejected
 
   function getFormattedValue(record: any, field: string): string {
     return (
@@ -177,12 +186,13 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
 
         <div className="absolute bottom-0 left-0 right-0 p-6 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-4">
           <button
-            disabled={!notaSpesaId || isUpdatingNota}
+            disabled={rejectDisabled}
             onClick={() => notaSpesaId && onRejectNota?.(notaSpesaId)}
             className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-              isUpdatingNota
-                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+              rejectDisabled
+                ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60 grayscale shadow-none"
                 : "bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                
             }`}
           >
             <XCircle size={18} />
@@ -190,11 +200,11 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
           </button>
 
           <button
-            disabled={!notaSpesaId || isUpdatingNota}
+            disabled={approveDisabled}
             onClick={() => notaSpesaId && onApproveNota?.(notaSpesaId)}
             className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
-              isUpdatingNota
-                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+              approveDisabled
+                ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60 grayscale shadow-none"
                 : "bg-[#E85C24] text-white hover:bg-[#d04a1b]"
             }`}
           >

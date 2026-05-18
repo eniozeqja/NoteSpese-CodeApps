@@ -402,6 +402,11 @@ if (fullDetailId) {
   URL.revokeObjectURL(url);
 };
 
+
+const selectedNota = expenses.find((expenses: any) => expenses.dw_nota_speseid === selectedId) as any
+
+const selectedNotaStatus = selectedNota?.["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? ""
+
   return (
     <MainLayout activeTab="dashboard" onNavigate={onNavigate} notificationsEnabled={notificationsEnabled}>
       <div className="p-10 max-w-[1600px] mx-auto space-y-8">
@@ -691,6 +696,7 @@ if (fullDetailId) {
     expenses.find((e) => e.dw_nota_speseid === selectedId)?.dw_name ||
     "Nota Spesa"
   }
+  notaSpesaStatus={selectedNotaStatus}
   onSelectDetail={(detailId) => {
     setFullDetailId(detailId);
     setIsDrawerOpen(false);
