@@ -116,6 +116,9 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
   const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodDate, setSelectedPeriodDate] = useState("");  
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [pendingRejectNotaId, setPendingRejectNotaId] = useState<string | null>(null);
 
 
   // Navigation & Integration State
@@ -301,31 +304,54 @@ const handleApproveNota = async (id: string) => {
   }
 };
 
-const handleRejectNota = async (id: string) => {
+const handleRejectNota = (id: string) => {
   if (updatingNotaId) return;
 
-  const confirmed = window.confirm(
-    "Sei sicuro di voler rifiutare questa Nota Spesa?"
-  );
+  setPendingRejectNotaId(id);
+  setRejectReason("");
+  setRejectModalOpen(true);
+};
 
-  if (!confirmed) return;
+const confirmRejectNota = async () => {
+  if (!pendingRejectNotaId || updatingNotaId) return;
+
+  const trimmedReason = rejectReason.trim();
+
+  if (!trimmedReason) {
+    alert("Il motivo del rifiuto è obbligatorio.");
+    return;
+  }
 
   try {
-    setUpdatingNotaId(id);
+    setUpdatingNotaId(pendingRejectNotaId);
 
-    await Dw_nota_spesesService.update(id, {
+    await Dw_nota_spesesService.update(pendingRejectNotaId, {
       dw_stato: 121950003, // Rifiutata
+      dw_noteaggiuntive: trimmedReason, // replace with your real column logical name
     } as any);
+
+    setRejectModalOpen(false);
+    setRejectReason("");
+    setPendingRejectNotaId(null);
 
     setIsDrawerOpen(false);
     setSelectedId(null);
+
     await loadExpenses();
   } catch (err) {
     console.error("Errore durante il rifiuto:", err);
-    alert("Errore durante il rifiuto");
+    alert("Errore durante il rifiuto della Nota Spesa.");
   } finally {
     setUpdatingNotaId(null);
   }
+};
+
+const cancelRejectNota = () => {
+  if (updatingNotaId) return;
+
+  setRejectModalOpen(false);
+  setRejectReason("");
+  setPendingRejectNotaId(null);
 };
 
 if (fullDetailId) {
@@ -705,6 +731,65 @@ const selectedNotaStatus = selectedNota?.["dw_stato@OData.Community.Display.V1.F
   onRejectNota={handleRejectNota}
   isUpdatingNota={updatingNotaId === selectedId}
 />
+
+{rejectModalOpen && (
+  <div className="fixed inset-0 z-[100] bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+    <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl overflow-hidden">
+      <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700">
+        <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">
+          Motivo del rifiuto
+        </h3>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+          Inserisci una spiegazione per aiutare il dipendente a correggere la Nota Spesa.
+        </p>
+      </div>
+
+      <div className="p-8 space-y-4">
+        <label className="block">
+          <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            Nota per il dipendente
+          </span>
+
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={5}
+            placeholder="Esempio: Ricevuta non leggibile, importo errato, categoria non corretta..."
+            className="mt-3 w-full resize-none rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:border-[#E85C24] focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-950/30 transition-all"
+          />
+        </label>
+
+        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+          Questo motivo sarà visibile al dipendente quando riaprirà la Nota Spesa rifiutata.
+        </p>
+      </div>
+
+      <div className="px-8 py-5 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={cancelRejectNota}
+          disabled={!!updatingNotaId}
+          className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Annulla
+        </button>
+
+        <button
+          type="button"
+          onClick={confirmRejectNota}
+          disabled={!!updatingNotaId || !rejectReason.trim()}
+          className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+            updatingNotaId || !rejectReason.trim()
+              ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+              : "bg-red-600 text-white hover:bg-red-700"
+          }`}
+        >
+          {updatingNotaId ? "Rifiuto in corso..." : "Conferma rifiuto"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </MainLayout>
   );
 };

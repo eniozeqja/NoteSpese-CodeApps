@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import "./App.css";
 import { getContext } from "@microsoft/power-apps/app";
-import OperatorApp from "../src/OperatoreApp";
+import OperatorApp from "./OperatoreApp";
 import DipendenteHome from "./components/dipendente/DipendenteHome";
-import { ContactsService } from "./generated//services/ContactsService";
+import { ContactsService } from "./generated/services/ContactsService";
 
 type Theme = "light" | "dark";
 type UserSide = "operator" | "dipendente";

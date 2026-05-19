@@ -15,6 +15,27 @@ import {
 } from "lucide-react";
 import { getContext } from "@microsoft/power-apps/app";
 import { Dw_nota_spesesService } from "@/generated";
+import { ContactsService } from "@/generated/services/ContactsService";
+
+function getRawContactRoleName(contact: any): string {
+  return (
+    contact?.["_cr098_ruolosicurezza_value@OData.Community.Display.V1.FormattedValue"] ??
+    contact?.cr098_ruolosicurezzaname ??
+    contact?.cr098_ruolosicurezza ??
+    ""
+  );
+}
+
+function getAppRoleFromContact(contact: any): "Operatore" | "Dipendente" {
+  const rawRole = getRawContactRoleName(contact).toLowerCase();
+
+  const isOperator =
+    rawRole.includes("system customizer") ||
+    rawRole.includes("admin") ||
+    rawRole.includes("approvatore");
+
+  return isOperator ? "Operatore" : "Dipendente";
+}
 
 type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
 
@@ -37,6 +58,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     fullName: "Utente",
     email: "",
     initials: "U",
+    role: "Dipendente"
   });
 
   const [notificationCount, setNotificationCount] = useState(0);
@@ -77,30 +99,53 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   useEffect(() => {
-    const loadContext = async () => {
-      try {
-        const ctx = await getContext();
+  const loadContext = async () => {
+    try {
+      const ctx = await getContext();
 
-        const fullName = ctx.user.fullName || "Utente";
-        const email = ctx.user.userPrincipalName || "";
+      const fullName = ctx.user.fullName || "Utente";
+      const email = ctx.user.userPrincipalName || "";
 
-        const initials =
-          fullName
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join("")
-            .toUpperCase() || "U";
+      const initials =
+        fullName
+          .split(" ")
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join("")
+          .toUpperCase() || "U";
 
-        setCurrentUser({ fullName, email, initials });
-      } catch (err) {
-        console.error("Errore caricamento contesto:", err);
+      let role = "Dipendente";
+
+      if (email) {
+        const safeEmail = email.replace(/'/g, "''");
+
+        const contactResult = await ContactsService.getAll({
+          filter: `emailaddress1 eq '${safeEmail}'`,
+        });
+
+        const contacts = (((contactResult as any)?.data ??
+          (contactResult as any)?.value ??
+          []) as any[]);
+
+        const contact = contacts[0];
+
+        console.log("[MainLayout] Current user email:", email);
+        console.log("[MainLayout] Contact found:", contact);
+
+        role = getAppRoleFromContact(contact);
+
+        console.log("[MainLayout] Role:", role);
       }
-    };
 
-    loadContext();
-  }, []);
+      setCurrentUser({ fullName, email, initials, role });
+    } catch (err) {
+      console.error("Errore caricamento contesto:", err);
+    }
+  };
+
+  loadContext();
+}, []);
 
   useEffect(() => {
     if (!notificationsEnabled) {
@@ -435,7 +480,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   {currentUser.fullName}
                 </p>
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
-                  {currentUser.email}
+                  {currentUser.role}
                 </p>
               </div>
 

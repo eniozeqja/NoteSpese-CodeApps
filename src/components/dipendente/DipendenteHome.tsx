@@ -1,14 +1,17 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 import { User, FilePlus2, Clock, LogOut } from "lucide-react";
 
 interface DipendenteHomeProps {
   currentUserName?: string;
   currentUserEmail?: string;
+  currentUserRole?: string;
 }
 
 const DipendenteHome: React.FC<DipendenteHomeProps> = ({
   currentUserName = "Dipendente",
   currentUserEmail = "",
+  currentUserRole = "Dipendente"
 }) => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
@@ -28,7 +31,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
               {currentUserName}
             </p>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-              {currentUserEmail}
+              {currentUserRole}
             </p>
           </div>
 

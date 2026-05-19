@@ -25,6 +25,7 @@ export interface Dw_nota_spesesBase {
   "dw_Dipendente@odata.bind"?: string;
   dw_name: string;
   dw_nota_speseid: string;
+  dw_noteaggiuntive?: string;
   dw_periodofinesort?: string;
   "dw_PeriodoTempo@odata.bind": string;
   dw_stato?: Dw_nota_spesesdw_stato;

@@ -134,6 +134,14 @@
           "required": true,
           "x-ms-keyType": "primary"
         },
+        "dw_noteaggiuntive": {
+          "type": "string",
+          "title": "Note Aggiuntive",
+          "x-ms-dataverse-attribute": "dw_noteaggiuntive",
+          "x-ms-dataverse-type": "MemoType",
+          "x-ms-schema-name": "dw_NoteAggiuntive",
+          "maxLength": 2000
+        },
         "dw_periodofinesort": {
           "type": "string",
           "title": "PeriodoFineSort",
