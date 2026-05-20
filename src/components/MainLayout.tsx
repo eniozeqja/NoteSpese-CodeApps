@@ -44,6 +44,7 @@ interface MainLayoutProps {
   activeTab: AppPage;
   onNavigate?: (page: AppPage) => void;
   notificationsEnabled?: boolean;
+  title?: string;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -51,6 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   onNavigate,
   notificationsEnabled = true,
+  title = "Note Spese - Operatore",
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -291,7 +293,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm dark:shadow-none">
           <div className="flex items-center gap-4 flex-1">
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-              Note Spese - Operatore
+              {title}
             </h1>
           </div>
 

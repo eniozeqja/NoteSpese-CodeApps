@@ -1,99 +1,138 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import React from "react";
-import { User, FilePlus2, Clock, LogOut } from "lucide-react";
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {useEffect, useState} from "react";
+import { getContext } from "@microsoft/power-apps/app"; 
+import { ContactsService, Dw_nota_spesesService } from "@/generated";
+import MainLayout from "../MainLayout";
 
-interface DipendenteHomeProps {
-  currentUserName?: string;
-  currentUserEmail?: string;
-  currentUserRole?: string;
+type NotaSpesa = {
+  dw_nota_speseid: string;
+  dw_name?: string;
+  createdon?: string;
+  dw_stato?: string;
 }
 
-const DipendenteHome: React.FC<DipendenteHomeProps> = ({
-  currentUserName = "Dipendente",
-  currentUserEmail = "",
-  currentUserRole = "Dipendente"
-}) => {
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
-      <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-10 flex items-center justify-between">
+interface DipendenteHomeProps {
+  currentUserName: string;
+  currentUserEmail: string;
+}
+
+const DipendeteHome: React.FC<DipendenteHomeProps> = ({
+  currentUserName,
+  currentUserEmail
+}) =>{
+
+  const [loading, setLoading] = useState(true)
+  const [noteSpese, setNoteSpese] = useState<NotaSpesa[]>([])
+
+  const loadMyNoteSpese = async () => {
+    try{
+      setLoading(true)
+
+      const ctx = await getContext()
+      const email = ctx.user.userPrincipalName || ""
+
+      console.log("Current user email:", email)
+      const contactResult = await ContactsService.getAll({
+        filter: `emailaddress1 eq '${email}'`
+      })
+
+      const contacts = ((contactResult as any)?.data ??
+        (contactResult as any)?.value ??
+        []) as any[]; 
+
+      const contact = contacts[0]
+      const contactId = contact?.contactid
+
+      if(!contactId){
+        setNoteSpese([])
+        return
+      }
+
+      const result = await Dw_nota_spesesService.getAll({
+        filter: `_dw_dipendente_value eq ${contactId} and (dw_stato eq 121950003 or dw_stato eq 121950000)`
+      })
+
+      const records = ((result as any)?.data ??
+        (result as any)?.value ??
+        []) as NotaSpesa[];
+
+      console.log("Fetched note spese:", records)
+      setNoteSpese(records)
+
+      
+    }catch(err){
+      console.error("Error fetching note spese:", err)
+    }finally{
+      setLoading(false)
+    }
+  }
+
+    useEffect(() => {
+    loadMyNoteSpese()
+  }, [])
+
+
+  return(
+    <MainLayout activeTab="dashboard" title="Note Spese - Dipendente">
+      <div className="space-y-8">
         <div>
-          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100">
-            Area Dipendente
+          <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100">
+            Le mie Note Spese
           </h1>
-          <p className="text-sm text-slate-400 dark:text-slate-500 font-medium mt-1">
-            Gestisci le tue note spese personali.
+          <p className="mt-2 text-slate-500 dark:text-slate-400">
+            Note spese in composizione o rifiutate.
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-black text-slate-800 dark:text-slate-100">
-              {currentUserName}
-            </p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-              {currentUserRole}
+        {loading ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-10 text-center">
+            <p className="text-slate-500 dark:text-slate-400">
+              Caricamento note spese...
             </p>
           </div>
-
-          <div className="w-10 h-10 rounded-full bg-[#E85C24] text-white flex items-center justify-center font-black">
-            <User size={18} />
-          </div>
-        </div>
-      </header>
-
-      <main className="p-10 max-w-6xl mx-auto space-y-8">
-        <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-3xl p-10 shadow-sm">
-          <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">
-            Benvenuto, {currentUserName}
-          </h2>
-
-          <p className="text-slate-500 dark:text-slate-400 mt-3 max-w-2xl">
-            Questa sarà la pagina dedicata al dipendente. Qui potremo aggiungere
-            la creazione di nuove note spese, caricamento ricevute, invio in
-            approvazione e visualizzazione dello stato.
-          </p>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-950/30 text-[#E85C24] flex items-center justify-center mb-5">
-              <FilePlus2 size={24} />
-            </div>
-            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-              Nuova Nota Spesa
-            </h3>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-              Funzionalità da implementare.
+        ) : noteSpese.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-10 text-center">
+            <p className="text-slate-500 dark:text-slate-400">
+              Nessuna Nota Spesa disponibile.
             </p>
           </div>
+        ) : (
+          <div className="grid gap-4">
+            {noteSpese.map((nota) => (
+              <button
+                key={nota.dw_nota_speseid}
+                className="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:border-[#E85C24] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
+                      {nota.dw_name || "Nota Spesa"}
+                    </h3>
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-500 flex items-center justify-center mb-5">
-              <Clock size={24} />
-            </div>
-            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-              Le mie Note Spese
-            </h3>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-              Qui mostreremo solo le note spese del dipendente.
-            </p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                      Creata il{" "}
+                      {nota.createdon
+                        ? new Date(nota.createdon).toLocaleDateString("it-IT")
+                        : "-"}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">
+                      {nota.dw_stato === "121950003"
+                        ? "Rifiutata"
+                        : "In Composizione"}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
+        )}
+      </div>
+    </MainLayout>
+  )
+}
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 flex items-center justify-center mb-5">
-              <LogOut size={24} />
-            </div>
-            <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-              Stato Approvazioni
-            </h3>
-            <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-              Qui potremo mostrare bozze, inviate, approvate e rifiutate.
-            </p>
-          </div>
-        </section>
-      </main>
-    </div>
-  );
-};
-
-export default DipendenteHome;
+export default DipendeteHome;
