@@ -89,12 +89,8 @@ function App() {
 
         const contact = contacts[0];
 
-        console.log("[Role Check] Current user email:", email);
-        console.log("[Role Check] Contact found:", contact);
 
         const roleName = getContactRoleName(contact);
-
-        console.log("[Role Check] Role name:", roleName);
 
         if (isOperatorRole(roleName)) {
           setUserSide("operator");

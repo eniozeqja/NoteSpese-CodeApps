@@ -10,7 +10,7 @@ type NotaSpesa = {
   dw_nota_speseid: string;
   dw_name?: string;
   createdon?: string;
-  dw_stato?: string;
+  dw_stato?: number;
 }
 
 interface DipendenteHomeProps {
@@ -27,47 +27,58 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
   const [noteSpese, setNoteSpese] = useState<NotaSpesa[]>([])
 
   const loadMyNoteSpese = async () => {
-    try{
-      setLoading(true)
+  try {
+    setLoading(true);
 
-      const ctx = await getContext()
-      const email = ctx.user.userPrincipalName || ""
+    const ctx = await getContext();
 
-      console.log("Current user email:", email)
-      const contactResult = await ContactsService.getAll({
-        filter: `emailaddress1 eq '${email}'`
-      })
+    const objId = ctx.user.objectId;
 
-      const contacts = ((contactResult as any)?.data ??
+    if (!objId) {
+      setNoteSpese([]);
+      return;
+    }
+
+    const safeObjId = objId.replace(/'/g, "''");
+
+    const contactResult = await ContactsService.getAll({
+      filter: `externaluseridentifier eq '${safeObjId}'`,
+    });
+
+
+
+    const contacts =
+      ((contactResult as any)?.data ??
         (contactResult as any)?.value ??
-        []) as any[]; 
+        []) as any[];
 
-      const contact = contacts[0]
-      const contactId = contact?.contactid
+    const contact = contacts[0];
+    const contactId = contact?.contactid;
 
-      if(!contactId){
-        setNoteSpese([])
-        return
-      }
 
-      const result = await Dw_nota_spesesService.getAll({
-        filter: `_dw_dipendente_value eq ${contactId} and (dw_stato eq 121950003 or dw_stato eq 121950000)`
-      })
+    if (!contactId) {
+      setNoteSpese([]);
+      return;
+    }
 
-      const records = ((result as any)?.data ??
+    const result = await Dw_nota_spesesService.getAll({
+      filter: `_dw_dipendente_value eq ${contactId} and (dw_stato eq 121950003 or dw_stato eq 121950001)`,
+    });
+
+    const records =
+      ((result as any)?.data ??
         (result as any)?.value ??
         []) as NotaSpesa[];
 
-      console.log("Fetched note spese:", records)
-      setNoteSpese(records)
+    console.log("[Dipendente] Fetched note spese:", records);
 
-      
-    }catch(err){
-      console.error("Error fetching note spese:", err)
-    }finally{
-      setLoading(false)
-    }
+    setNoteSpese(records);
+  } catch (err) {
+    console.error("[Dipendente] Error fetching note spese:", err);
+  } finally {
+    setLoading(false);
   }
+};
 
     useEffect(() => {
     loadMyNoteSpese()
@@ -120,7 +131,7 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
 
                   <div>
                     <span className="px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300">
-                      {nota.dw_stato === "121950003"
+                      {nota.dw_stato === 121950003
                         ? "Rifiutata"
                         : "In Composizione"}
                     </span>

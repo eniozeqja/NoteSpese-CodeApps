@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useRef } from "react";
@@ -113,31 +114,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           .split(" ")
           .filter(Boolean)
           .slice(0, 2)
-          .map((part) => part[0])
+          .map((part) => part[0]) 
           .join("")
           .toUpperCase() || "U";
 
       let role = "Dipendente";
 
-      if (email) {
-        const safeEmail = email.replace(/'/g, "''");
-
+       if (ctx.user.objectId) {
         const contactResult = await ContactsService.getAll({
-          filter: `emailaddress1 eq '${safeEmail}'`,
+          filter: `externaluseridentifier eq ${ctx.user.objectId}`,
         });
+        role = getAppRoleFromContact(contactResult.data[0]);
 
-        const contacts = (((contactResult as any)?.data ??
-          (contactResult as any)?.value ??
-          []) as any[]);
-
-        const contact = contacts[0];
-
-        console.log("[MainLayout] Current user email:", email);
-        console.log("[MainLayout] Contact found:", contact);
-
-        role = getAppRoleFromContact(contact);
-
-        console.log("[MainLayout] Role:", role);
       }
 
       setCurrentUser({ fullName, email, initials, role });
