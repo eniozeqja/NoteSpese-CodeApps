@@ -6,6 +6,7 @@ import { getContext } from "@microsoft/power-apps/app";
 import { ContactsService, Dw_nota_spesesService } from "@/generated";
 import MainLayout from "../MainLayout";
 import DipendenteDettagliDrawer from "./DipendenteDettagliDrawer";
+import DipendenteDettaglioFullView from "./DipendenteDettaglioFullView";
 
 type NotaSpesa = {
   dw_nota_speseid: string;
@@ -87,6 +88,22 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
     useEffect(() => {
     loadMyNoteSpese()
   }, [])
+
+  if(selectedDetailId){
+    return (
+      <DipendenteDettaglioFullView
+      detailId={selectedDetailId}
+      onBack={() => {
+        setSelectedDetailId(null)
+        setIsDrawerOpen(true)
+      }}
+      onSaved={() => {
+        loadMyNoteSpese()
+      }}
+      />
+
+    )
+  }
 
 
   return(
