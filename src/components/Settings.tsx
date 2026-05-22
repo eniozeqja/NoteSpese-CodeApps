@@ -89,7 +89,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           <h2 className="text-2xl font-black text-slate-800">
             Impostazioni
           </h2>
-          <p className="text-sm text-slate-400 font-medium mt-1">
+          <p className="text-sm text-slate-400 font-medium mt-1 dark:text-slate-100">
             Gestisci preferenze e informazioni dell&apos;app Note Spese.
           </p>
         </div>

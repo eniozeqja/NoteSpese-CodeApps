@@ -5,6 +5,7 @@ import {useEffect, useState} from "react";
 import { getContext } from "@microsoft/power-apps/app"; 
 import { ContactsService, Dw_nota_spesesService } from "@/generated";
 import MainLayout from "../MainLayout";
+import DipendenteDettagliDrawer from "./DipendenteDettagliDrawer";
 
 type NotaSpesa = {
   dw_nota_speseid: string;
@@ -25,6 +26,11 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
 
   const [loading, setLoading] = useState(true)
   const [noteSpese, setNoteSpese] = useState<NotaSpesa[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedName, setSelectedName] = useState("")
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [selectedRejectionReason, setSelectedRejectionReason] = useState("")
+  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null)
 
   const loadMyNoteSpese = async () => {
   try {
@@ -44,8 +50,6 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
     const contactResult = await ContactsService.getAll({
       filter: `externaluseridentifier eq '${safeObjId}'`,
     });
-
-
 
     const contacts =
       ((contactResult as any)?.data ??
@@ -110,10 +114,30 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
           </div>
         ) : (
           <div className="grid gap-4">
+            <DipendenteDettagliDrawer
+  isOpen={isDrawerOpen}
+  onClose={() => setIsDrawerOpen(false)}
+  notaSpesaId={selectedId}
+  notaSpesaName={selectedName}
+  rejectionReason={selectedRejectionReason}
+  onResend={() => {
+    console.log("Reinvia clicked");
+  }}
+  onSetSelectedDetail={(detailId) => {
+    setSelectedDetailId(detailId);
+    setIsDrawerOpen(false);
+  }}
+/>
             {noteSpese.map((nota) => (
               <button
                 key={nota.dw_nota_speseid}
                 className="w-full text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:border-[#E85C24] transition-all"
+                onClick={() => {
+                  setSelectedId(nota.dw_nota_speseid);
+                  setSelectedName(nota.dw_name || "Nota Spesa");
+                  setIsDrawerOpen(true);
+                  setSelectedRejectionReason((nota as any).dw_noteaggiuntive || "")
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -138,6 +162,7 @@ const DipendeteHome: React.FC<DipendenteHomeProps> = ({
                   </div>
                 </div>
               </button>
+              
             ))}
           </div>
         )}
