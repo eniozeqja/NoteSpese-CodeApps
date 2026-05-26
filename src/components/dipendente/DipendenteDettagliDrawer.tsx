@@ -1,6 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from "react";
 import { X, Loader2, FileText, Send, ChevronRight, AlertCircle, Calendar, Coins, Trash2 } from "lucide-react";
@@ -208,15 +207,24 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
 
                     {/* Action Button - Non-functional as requested */}
                     <button
-                        className="w-full py-4 rounded-2xl bg-[#E85C24] text-white font-black text-sm flex items-center justify-center gap-2 hover:bg-[#d04a1b] transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] cursor-not-allowed opacity-80"
-                    >
-                        <Send size={18} />
-                        Reinvia Nota Spese
-                    </button>
-                    
-                    <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                        Operazione finale non disponibile in anteprima
-                    </p>
+  type="button"
+  onClick={onResend}
+  disabled={details.length === 0}
+  className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
+    details.length === 0
+      ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none"
+      : "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-500/20"
+  }`}
+>
+  <Send size={18} />
+  Reinvia Nota Spese
+</button>
+
+{details.length === 0 && (
+  <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+    Aggiungi almeno una voce prima di reinviare
+  </p>
+)}
                 </div>
             </aside>
         </>

@@ -147,11 +147,8 @@ const HalfMonthPicker: React.FC<HalfMonthPickerProps> = ({
           </div>
 
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map((day) => (
-              <div
-                key={day}
-                className="h-8 flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-slate-500"
-              >
+            {weekDays.map((day, index) => (
+              <div key={`${day}-${index}`} className="h-8 flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-slate-500">
                 {day}
               </div>
             ))}
