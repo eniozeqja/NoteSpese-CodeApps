@@ -91,6 +91,7 @@ function App() {
 
 
         const roleName = getContactRoleName(contact);
+        console.log(roleName)
 
         if (isOperatorRole(roleName)) {
           setUserSide("operator");
