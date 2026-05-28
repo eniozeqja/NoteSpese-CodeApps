@@ -32,6 +32,18 @@
         "contatti": {
           "entitySetName": "contacts",
           "logicalName": "contact"
+        },
+        "notificationtrackers": {
+          "entitySetName": "dw_notificationtrackers",
+          "logicalName": "dw_notificationtracker"
+        },
+        "utentenotifstatoes": {
+          "entitySetName": "dw_utentenotifstatos",
+          "logicalName": "dw_utentenotifstato"
+        },
+        "ruolidisicurezza": {
+          "entitySetName": "roles",
+          "logicalName": "role"
         }
       },
       "environmentVariableName": ""

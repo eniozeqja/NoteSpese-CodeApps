@@ -93,20 +93,22 @@ const ExpenseDetailCard: React.FC<ExpenseDetailCardProps> = ({
 
       <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
         <div>
-          <div className="flex justify-between items-start gap-2">
-            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-[#E85C24] transition-colors">
+          <div className="flex justify-between items-start gap-3">
+            <h4 className="min-w-0 text-sm font-bold text-slate-800 dark:text-slate-100 truncate group-hover:text-[#E85C24] transition-colors">
               {detail.name}
             </h4>
 
-            <div className="text-right">
-              <span className="text-sm font-black text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-100 dark:border-slate-700">
-                {detail.currency}{" "}
-                {detail.amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            </div>
+<div className="shrink-0 text-right">
+  <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-black text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-100 dark:border-slate-700">
+    <span>{detail.currency}</span>
+    <span>
+      {detail.amount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    </span>
+  </span>
+</div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">

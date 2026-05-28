@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import React, { useEffect, useState } from "react";
 import {
   LayoutDashboard,
@@ -35,12 +34,15 @@ function getAppRoleFromContact(contact: any): "Operatore" | "Dipendente" {
 }
 
 type AppPage = "dashboard" | "analytics" | "settings";
+type NotificationMode = "operatore" | "dipendente";
 
 interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: AppPage;
   onNavigate?: (page: AppPage) => void;
   notificationsEnabled?: boolean;
+  notificationMode?: NotificationMode;
+  dipendenteId?: string | null;
   title?: string;
 }
 
@@ -49,6 +51,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   onNavigate,
   notificationsEnabled = true,
+  notificationMode = "operatore",
+  dipendenteId = null,
   title = "Note Spese - Operatore",
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -192,7 +196,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-700">
-              <NotificationBell notificationsEnabled={notificationsEnabled} />
+              <NotificationBell mode={notificationMode} notificationsEnabled={notificationsEnabled} dipendenteId={dipendenteId} />
 
               <div className="relative">
                 <button

@@ -8,12 +8,18 @@ export * as CommonModels from './models/CommonModels';
 export * as ContactsModel from './models/ContactsModel';
 export * as Dw_detaglinotespesasModel from './models/Dw_detaglinotespesasModel';
 export * as Dw_nota_spesesModel from './models/Dw_nota_spesesModel';
+export * as Dw_notificationtrackersModel from './models/Dw_notificationtrackersModel';
 export * as Dw_projectcommessasModel from './models/Dw_projectcommessasModel';
 export * as Dw_time_periodsModel from './models/Dw_time_periodsModel';
+export * as Dw_utentenotifstatosModel from './models/Dw_utentenotifstatosModel';
+export * as RolesModel from './models/RolesModel';
 
 // Services
 export * from './services/ContactsService';
 export * from './services/Dw_detaglinotespesasService';
 export * from './services/Dw_nota_spesesService';
+export * from './services/Dw_notificationtrackersService';
 export * from './services/Dw_projectcommessasService';
 export * from './services/Dw_time_periodsService';
+export * from './services/Dw_utentenotifstatosService';
+export * from './services/RolesService';

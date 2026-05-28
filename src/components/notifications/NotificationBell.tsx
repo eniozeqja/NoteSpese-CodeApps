@@ -4,18 +4,23 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bell, Clock, Inbox, X } from "lucide-react";
 import { Dw_nota_spesesService } from "@/generated";
 
+type NotificationMode = "operatore" | "dipendente"
 interface NotificationBellProps {
   notificationsEnabled?: boolean;
+  mode?: NotificationMode;
+  dipendenteId?: string | null
 }
 
 const NotificationBell: React.FC<NotificationBellProps> = ({
   notificationsEnabled = true,
+  mode = "operatore",
+  dipendenteId = null,
 }) => {
   const [notificationCount, setNotificationCount] = useState(0);
   const [latestCreatedOn, setLatestCreatedOn] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [latestNotifications, setLatestNotifications] = useState<any[]>([]);
-
+    const [previousStatuses, setPreviousStatuses] = useState<Record<string, number>>({})
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -53,55 +58,115 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
     if (!notificationsEnabled) {
       return;
     }
-    const checkForNewNote = async () => {
-      try {
-        const result = await Dw_nota_spesesService.getAll();
 
-        const notes = ((result as any)?.data ?? (result as any)?.value ?? []) as any[];
+    if(mode === "dipendente" && !dipendenteId){
+        return
+    }
 
-        if (!notes.length) return;
+    const checkNotifications = async () => {
+        try {
+            const result = await Dw_nota_spesesService.getAll(
+                mode === "dipendente"
+                ? {
+                    filter: `_dw_dipendente_value eq ${dipendenteId}`
+                }
+                : undefined
+            )
 
-        const sortedNotes = notes
-          .filter((note) => note.createdon)
-          .sort(
-            (a, b) =>
-              new Date(b.createdon).getTime() -
-              new Date(a.createdon).getTime()
-          );
+            const notes =((result as any)?.data ?? (result as any)?.value ?? []) as any[]
 
-        const newestCreatedOn = sortedNotes[0]?.createdon;
+            if(!notes.length) return;
 
-        if (!newestCreatedOn) return;
+            if(mode === "operatore"){
+                const sortedNotes = notes.filter((note) => note.createdon)
+                .sort(
+                    (a, b) => 
+                        new Date(b.createdon).getTime() -
+                        new Date(a.createdon).getTime()
+                )
+                const newestCreatedOn = sortedNotes[0]?.createdon;
+                if(!newestCreatedOn) return
 
-        if (!latestCreatedOn) {
-          setLatestCreatedOn(newestCreatedOn);
-          return;
+                if(!latestCreatedOn){
+                    setLatestCreatedOn(newestCreatedOn)
+                    return
+                }
+
+                const newNotes = sortedNotes.filter(
+                    (note) => 
+                        new Date(note.createdon).getTime() > 
+                        new Date(latestCreatedOn).getTime()
+                )
+
+                if(newNotes.length > 0) {
+                    setNotificationCount((prev) => prev + newNotes.length)
+                    setLatestNotifications((prev) => [...newNotes, ...prev].slice(0, 8))
+                    setLatestCreatedOn(newestCreatedOn)
+                }
+
+                return
+            
+            }
+
+            if(mode === "dipendente") {
+                const currentStatuses: Record<string, number> = {}
+
+                const changedNotes = notes.filter((note) => {
+                    const noteId = note.dw_note_speseid;
+                    const currentStatus = note.dw_stato;
+
+                    if(!noteId || currentStatus === undefined || currentStatus === null){
+                        return false
+                    }
+
+                    currentStatuses[noteId] = currentStatus
+
+                    const previousStatus = previousStatuses[noteId]
+
+                    return(
+                        previousStatus === 121950001 && 
+                        (currentStatus === 121950002 || currentStatus === 121950003)
+                    )
+                })
+
+                if(Object.keys(previousStatuses).length === 0){
+                    setPreviousStatuses(currentStatuses)
+                    return
+                }
+
+                if(changedNotes.length > 0){
+                    setNotificationCount((prev) => prev + changedNotes.length)
+
+                    setLatestNotifications((prev) => 
+                    [
+                        ...changedNotes.map((note) => ({
+                            ...note,
+                            notificationMessage:
+                            note.dw_stato === 121950002
+                            ? "La tua nota spesa è stata approvata"
+                            : "La tua nota spesa è stata rifiutata"
+                        })),
+                        ...prev,
+                    ].slice(0,8))
+                }
+
+                setPreviousStatuses(currentStatuses)
+            }
+
+            } catch(err) {
+                console.log("Errore controllo notifiche note spese: ", err)
+            }
         }
+        checkNotifications()
+        const intervalId = window.setInterval(checkNotifications, 5000)
 
-        const newNotes = sortedNotes.filter(
-          (note) =>
-            new Date(note.createdon).getTime() >
-            new Date(latestCreatedOn).getTime()
-        );
-
-        if (newNotes.length > 0) {
-          setNotificationCount((prev) => prev + newNotes.length);
-          setLatestNotifications((prev) => [...newNotes, ...prev].slice(0, 8));
-          setLatestCreatedOn(newestCreatedOn);
+        return() => {
+            window.clearInterval(intervalId)
         }
-      } catch (err) {
-        console.error("Errore controllo nuove note spese:", err);
-      }
-    };
+    }, [notificationsEnabled, mode, dipendenteId, latestCreatedOn, previousStatuses])
 
-    checkForNewNote();
 
-    const intervalId = window.setInterval(checkForNewNote, 5000);
 
-    return () => {
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [latestCreatedOn, notificationsEnabled]);
 
   return (
     <div className="relative" ref={notificationRef}>
@@ -168,9 +233,15 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
-                        {note.dw_name ?? "Nuova Nota Spesa"}
-                      </p>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                            {note.notificationMessage ?? note.dw_name ?? "Nuova Nota Spesa"}
+                        </p>
+
+                        {note.notificationMessage && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                            {note.dw_name ?? "Nota spesa"}
+                        </p>
+                        )}
 
                       <div className="flex items-center gap-1 mt-1 text-xs text-slate-500 dark:text-slate-400">
                         <Clock className="w-3 h-3" />

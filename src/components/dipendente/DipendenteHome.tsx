@@ -50,6 +50,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedRejectionReason, setSelectedRejectionReason] = useState("");
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  const [dipendenteId, setDipendenteId] = useState<string | null>(null);
   
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -76,6 +77,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
       const contacts = ((contactResult as any)?.data ?? (contactResult as any)?.value ?? []) as any[];
       const contact = contacts[0];
       const contactId = contact?.contactid;
+      setDipendenteId(contactId ?? null);
 
       if (!contactId) {
         setNoteSpese([]);
@@ -164,7 +166,7 @@ const filteredNotes = useMemo(() => {
   }
 
   return (
-    <MainLayout activeTab="dashboard">
+    <MainLayout activeTab="dashboard" notificationMode="dipendente" dipendenteId={dipendenteId} title="Le mie Note Spese">
       <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         {/* Header Section */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -298,7 +300,7 @@ const filteredNotes = useMemo(() => {
                 if (!confirmed) return;
                 try {
                   await Dw_nota_spesesService.update(selectedId, {
-                    dw_stato: 121950002, 
+                    dw_stato: 121950001, 
                     dw_noteaggiuntive: null,
                   } as any);
                   setIsDrawerOpen(false);
