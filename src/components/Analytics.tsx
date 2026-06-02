@@ -35,6 +35,80 @@ interface AnalyticsPageProps {
   onNavigate?: (page: AppPage) => void;
 }
 
+const COLORS = ["#E85C24", "#334155", "#94A3B8", "#FDBA74", "#1E293B"];
+
+const ANALYTICS_INCLUDED_STATUSES = [
+  "IN ATTESA DI APPROVAZIONE",
+  "APPROVATA",
+  "RIFIUTATA",
+  "COMPLETATA",
+];
+
+function getFormattedValue(record: any, field: string): string {
+  return (
+    record[`${field}@OData.Community.Display.V1.FormattedValue`] ??
+    record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ??
+    "—"
+  );
+}
+
+function getNotaStatus(nota: any): string {
+  return (
+    nota?.["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? ""
+  ).toUpperCase();
+}
+
+function getDetailAmount(detail: any): number {
+  const amount = detail.dw_totalcost ?? detail.dw_amount ?? 0;
+  return Number(amount) || 0;
+}
+
+function getDetailDate(detail: any): Date | null {
+  const dateValue = detail.dw_transactiondate ?? detail.createdon;
+
+  if (!dateValue) return null;
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date;
+}
+
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}`;
+}
+
+function getMonthLabel(date: Date) {
+  return date.toLocaleDateString("it-IT", {
+    month: "short",
+    year: "2-digit",
+  });
+}
+
+const analyticsTooltipStyle = {
+  borderRadius: "16px",
+  border: "1px solid rgb(51 65 85)",
+  backgroundColor: "rgb(15 23 42)",
+  color: "rgb(248 250 252)",
+  boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.25)",
+  padding: "12px",
+};
+
+const analyticsTooltipLabelStyle = {
+  color: "rgb(248 250 252)",
+  fontWeight: 900,
+  marginBottom: "6px",
+};
+
+const analyticsTooltipItemStyle = {
+  color: "#FDBA74",
+  fontWeight: 900,
+};
+
 const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +129,11 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
       ]);
 
       setRawExpenses(
-        (expensesRes as any)?.data ?? (expensesRes as any)?.value ?? []
+        (expensesRes as any)?.data ?? (expensesRes as any)?.value ?? [],
       );
+
       setRawDetails(
-        (detailsRes as any)?.data ?? (detailsRes as any)?.value ?? []
+        (detailsRes as any)?.data ?? (detailsRes as any)?.value ?? [],
       );
     } catch (err) {
       console.error("Analytics load error:", err);
@@ -72,15 +147,37 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
     loadData();
   }, []);
 
+  const expensesById = useMemo(() => {
+    const map = new Map<string, any>();
+
+    rawExpenses.forEach((expense: any) => {
+      if (expense.dw_nota_speseid) {
+        map.set(expense.dw_nota_speseid, expense);
+      }
+    });
+
+    return map;
+  }, [rawExpenses]);
+
+  const analyticsDetails = useMemo(() => {
+    return rawDetails.filter((detail: any) => {
+      const parentNota = expensesById.get(detail._dw_notaspesa_value);
+
+      if (!parentNota) return false;
+
+      const status = getNotaStatus(parentNota);
+
+      return ANALYTICS_INCLUDED_STATUSES.includes(status);
+    });
+  }, [rawDetails, expensesById]);
+
   const searchedDetails = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
-    if (!q) return rawDetails;
+    if (!q) return analyticsDetails;
 
-    return rawDetails.filter((detail: any) => {
-      const parentNota = rawExpenses.find(
-        (expense: any) => expense.dw_nota_speseid === detail._dw_notaspesa_value
-      );
+    return analyticsDetails.filter((detail: any) => {
+      const parentNota = expensesById.get(detail._dw_notaspesa_value);
 
       const project =
         parentNota?.[
@@ -91,20 +188,22 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
         ] ??
         "";
 
-      const manager =
+      const employee =
         parentNota?.[
           "_dw_dipendente_value@OData.Community.Display.V1.FormattedValue"
         ] ?? "";
 
-      const name = detail.dw_name ?? "";
+      const detailName = detail.dw_name ?? "";
+      const notaName = parentNota?.dw_name ?? "";
 
       return (
         project.toLowerCase().includes(q) ||
-        manager.toLowerCase().includes(q) ||
-        name.toLowerCase().includes(q)
+        employee.toLowerCase().includes(q) ||
+        detailName.toLowerCase().includes(q) ||
+        notaName.toLowerCase().includes(q)
       );
     });
-  }, [rawDetails, rawExpenses, searchTerm]);
+  }, [analyticsDetails, expensesById, searchTerm]);
 
   const timeFilteredDetails = useMemo(() => {
     const days = Number(timeRange);
@@ -112,12 +211,24 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
     const minDate = new Date();
 
     minDate.setDate(now.getDate() - days);
+    minDate.setHours(0, 0, 0, 0);
 
     return searchedDetails.filter((detail: any) => {
-      const createdOn = new Date(detail.createdon);
-      return createdOn >= minDate && createdOn <= now;
+      const detailDate = getDetailDate(detail);
+
+      if (!detailDate) return false;
+
+      return detailDate >= minDate && detailDate <= now;
     });
   }, [searchedDetails, timeRange]);
+
+  const filteredNotaIds = useMemo(() => {
+    return new Set(
+      timeFilteredDetails
+        .map((detail: any) => detail._dw_notaspesa_value)
+        .filter(Boolean),
+    );
+  }, [timeFilteredDetails]);
 
   const stats = useMemo(() => {
     if (!timeFilteredDetails.length) {
@@ -125,107 +236,112 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
     }
 
     const total = timeFilteredDetails.reduce(
-      (sum, d) => sum + (d.dw_totalcost ?? d.dw_amount ?? 0),
-      0
-    );
-
-    const filteredNotaIds = new Set(
-      timeFilteredDetails
-        .map((detail: any) => detail._dw_notaspesa_value)
-        .filter(Boolean)
+      (sum, detail) => sum + getDetailAmount(detail),
+      0,
     );
 
     const count = filteredNotaIds.size;
     const avg = count > 0 ? total / count : 0;
 
-    const pendingTotal = rawExpenses
-      .filter((e) =>
-        e["dw_stato@OData.Community.Display.V1.FormattedValue"]
-          ?.toUpperCase()
-          .includes("ATTESA")
-      )
-      .reduce((sum, e) => {
-        const details = timeFilteredDetails.filter(
-          (d) => d._dw_notaspesa_value === e.dw_nota_speseid
-        );
+    const pendingTotal = timeFilteredDetails.reduce((sum, detail: any) => {
+      const parentNota = expensesById.get(detail._dw_notaspesa_value);
+      const status = getNotaStatus(parentNota);
 
-        return (
-          sum +
-          details.reduce(
-            (s, d) => s + (d.dw_totalcost ?? d.dw_amount ?? 0),
-            0
-          )
-        );
-      }, 0);
+      if (status.includes("ATTESA")) {
+        return sum + getDetailAmount(detail);
+      }
 
-    return { total, avg, pending: pendingTotal, count };
-  }, [rawExpenses, timeFilteredDetails]);
+      return sum;
+    }, 0);
+
+    return {
+      total,
+      avg,
+      pending: pendingTotal,
+      count,
+    };
+  }, [timeFilteredDetails, filteredNotaIds, expensesById]);
 
   const trendData = useMemo(() => {
-    const months = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu"];
+    const buckets: Record<
+      string,
+      {
+        name: string;
+        total: number;
+        count: number;
+      }
+    > = {};
 
-    return months.map((month, index) => {
-      const detailsInMonth = timeFilteredDetails.filter((detail: any) => {
-        const createdOn = new Date(detail.createdon);
-        return createdOn.getMonth() === index;
-      });
+    timeFilteredDetails.forEach((detail: any) => {
+      const detailDate = getDetailDate(detail);
 
-      const total = detailsInMonth.reduce(
-        (sum, detail: any) =>
-          sum + (detail.dw_totalcost ?? detail.dw_amount ?? 0),
-        0
-      );
+      if (!detailDate) return;
 
-      const count = detailsInMonth.length;
+      const key = getMonthKey(detailDate);
+      const name = getMonthLabel(detailDate);
 
-      return {
-        name: month,
-        total,
-        avg: count > 0 ? total / count : 0,
-      };
+      if (!buckets[key]) {
+        buckets[key] = {
+          name,
+          total: 0,
+          count: 0,
+        };
+      }
+
+      buckets[key].total += getDetailAmount(detail);
+      buckets[key].count += 1;
     });
+
+    return Object.entries(buckets)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, bucket]) => ({
+        name: bucket.name,
+        total: bucket.total,
+        avg: bucket.count > 0 ? bucket.total / bucket.count : 0,
+      }));
   }, [timeFilteredDetails]);
 
   const categoryData = useMemo(() => {
     const categories: Record<string, number> = {};
 
-    timeFilteredDetails.forEach((d) => {
-      const cat =
-        d["dw_categoriadispesa@OData.Community.Display.V1.FormattedValue"] ||
+    timeFilteredDetails.forEach((detail: any) => {
+      const category =
+        detail[
+          "dw_categoriadispesa@OData.Community.Display.V1.FormattedValue"
+        ] ??
+        detail[
+          "dw_categoriadispesa@OData.Community.Display.V1.FormattedValue"
+        ] ??
         "Altro";
 
-      categories[cat] =
-        (categories[cat] || 0) + (d.dw_totalcost ?? d.dw_amount ?? 0);
+      categories[category] =
+        (categories[category] || 0) + getDetailAmount(detail);
     });
 
     return Object.entries(categories)
       .map(([name, value]) => ({ name, value }))
+      .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [timeFilteredDetails]);
 
   const urgentCount = useMemo(() => {
     const today = new Date();
 
-    const filteredNotaIds = new Set(
-      timeFilteredDetails
-        .map((detail: any) => detail._dw_notaspesa_value)
-        .filter(Boolean)
-    );
-
     return rawExpenses.filter((expense: any) => {
       if (!filteredNotaIds.has(expense.dw_nota_speseid)) return false;
 
-      const status =
-        expense["dw_stato@OData.Community.Display.V1.FormattedValue"]
-          ?.toUpperCase() ?? "";
+      const status = getNotaStatus(expense);
 
       const createdOn = new Date(expense.createdon);
+
+      if (Number.isNaN(createdOn.getTime())) return false;
+
       const diffDays =
         (today.getTime() - createdOn.getTime()) / (1000 * 60 * 60 * 24);
 
       return status.includes("ATTESA") && diffDays > 5;
     }).length;
-  }, [rawExpenses, timeFilteredDetails]);
+  }, [rawExpenses, filteredNotaIds]);
 
   const projectData = useMemo(() => {
     const projects: Record<
@@ -235,15 +351,13 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
         total: number;
         count: number;
         pendingAmount: number;
+        noteIds: Set<string>;
       }
     > = {};
 
     timeFilteredDetails.forEach((detail: any) => {
       const parentNotaId = detail._dw_notaspesa_value;
-
-      const parentNota = rawExpenses.find(
-        (expense: any) => expense.dw_nota_speseid === parentNotaId
-      );
+      const parentNota = expensesById.get(parentNotaId);
 
       const project =
         parentNota?.[
@@ -257,11 +371,8 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
         ] ??
         "Senza commessa";
 
-      const status =
-        parentNota?.["dw_stato@OData.Community.Display.V1.FormattedValue"] ??
-        "Sconosciuto";
-
-      const amount = detail.dw_totalcost ?? detail.dw_amount ?? 0;
+      const status = getNotaStatus(parentNota);
+      const amount = getDetailAmount(detail);
 
       if (!projects[project]) {
         projects[project] = {
@@ -269,21 +380,32 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
           total: 0,
           count: 0,
           pendingAmount: 0,
+          noteIds: new Set<string>(),
         };
       }
 
       projects[project].total += amount;
       projects[project].count += 1;
 
-      if (status.toUpperCase().includes("ATTESA")) {
+      if (parentNotaId) {
+        projects[project].noteIds.add(parentNotaId);
+      }
+
+      if (status.includes("ATTESA")) {
         projects[project].pendingAmount += amount;
       }
     });
 
-    return Object.values(projects).sort((a, b) => b.total - a.total);
-  }, [timeFilteredDetails, rawExpenses]);
-
-  const COLORS = ["#E85C24", "#334155", "#94A3B8", "#FDBA74", "#1E293B"];
+    return Object.values(projects)
+      .map((project) => ({
+        id: project.id,
+        total: project.total,
+        count: project.count,
+        noteCount: project.noteIds.size,
+        pendingAmount: project.pendingAmount,
+      }))
+      .sort((a, b) => b.total - a.total);
+  }, [timeFilteredDetails, expensesById]);
 
   if (loading) {
     return (
@@ -303,9 +425,11 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
           <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400 flex items-center justify-center">
             <AlertCircle size={28} />
           </div>
+
           <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
             {error}
           </p>
+
           <button
             onClick={loadData}
             className="px-5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:border-[#E85C24] hover:text-[#E85C24] transition-all"
@@ -331,6 +455,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
                 €{" "}
                 {stats.total.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}
               </p>
 
@@ -347,7 +472,11 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
               In Attesa
             </h2>
             <p className="text-2xl font-black text-orange-500">
-              € {stats.pending.toLocaleString()}
+              €{" "}
+              {stats.pending.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
           </div>
         </div>
@@ -371,6 +500,16 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
               </select>
             </div>
           </div>
+
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="Cerca per commessa, dipendente o dettaglio..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-200 outline-none focus:border-[#E85C24] focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-950/30 transition-all"
+            />
+          </div>
         </section>
 
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -378,15 +517,15 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
             {
               label: "Costo Medio Nota",
               val: `€ ${stats.avg.toFixed(0)}`,
-              sub: "Calcolato dai dettagli",
+              sub: "Media per nota nel periodo",
               icon: DollarSign,
               color: "text-blue-500",
               bg: "bg-blue-50 dark:bg-blue-950/30",
             },
             {
-              label: "Note Processate",
+              label: "Note nel periodo",
               val: stats.count,
-              sub: "Note Totali",
+              sub: "Note con dettagli filtrati",
               icon: BarChart3,
               color: "text-green-500",
               bg: "bg-green-50 dark:bg-green-950/30",
@@ -394,7 +533,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
             {
               label: "Categoria Top",
               val: categoryData[0]?.name || "N/A",
-              sub: "Per Importo",
+              sub: "Per importo",
               icon: TrendingUp,
               color: "text-orange-500",
               bg: "bg-orange-50 dark:bg-orange-950/30",
@@ -402,32 +541,34 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
             {
               label: "Urgenti",
               val: urgentCount,
-              sub: "Oltre i 5 giorni",
+              sub: "In attesa da oltre 5 giorni",
               icon: AlertCircle,
               color: "text-red-500",
               bg: "bg-red-50 dark:bg-red-950/30",
             },
-          ].map((m, i) => (
+          ].map((metric, index) => (
             <div
-              key={i}
+              key={index}
               className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-between"
             >
               <div>
                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
-                  {m.label}
+                  {metric.label}
                 </p>
+
                 <p className="text-2xl font-black text-slate-800 dark:text-slate-100">
-                  {m.val}
+                  {metric.val}
                 </p>
+
                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1">
-                  {m.sub}
+                  {metric.sub}
                 </p>
               </div>
 
               <div
-                className={`w-12 h-12 rounded-xl ${m.bg} ${m.color} flex items-center justify-center shadow-inner`}
+                className={`w-12 h-12 rounded-xl ${metric.bg} ${metric.color} flex items-center justify-center shadow-inner`}
               >
-                <m.icon size={24} />
+                <metric.icon size={24} />
               </div>
             </div>
           ))}
@@ -438,10 +579,11 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-                  Trend di Spesa Semestrale
+                  Trend di Spesa
                 </h3>
+
                 <p className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight">
-                  Analisi dei costi mensili consolidati
+                  Basato sulla data transazione dei dettagli
                 </p>
               </div>
 
@@ -454,13 +596,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={trendData}>
                   <defs>
-                    <linearGradient
-                      id="colorTotal"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
+                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#E85C24" stopOpacity={0.2} />
                       <stop offset="95%" stopColor="#E85C24" stopOpacity={0} />
                     </linearGradient>
@@ -485,17 +621,20 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: "#94a3b8", fontSize: 10 }}
-                    tickFormatter={(v: number) => `€${v / 1000}k`}
+                    tickFormatter={(value: number) => `€${value / 1000}k`}
                   />
 
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "16px",
-                      border: "1px solid rgb(226 232 240)",
-                      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
-                      padding: "12px",
-                    }}
-                    itemStyle={{ fontWeight: 900, color: "#E85C24" }}
+                    contentStyle={analyticsTooltipStyle}
+                    labelStyle={analyticsTooltipLabelStyle}
+                    itemStyle={analyticsTooltipItemStyle}
+                    formatter={(value: any) => [
+                      `€ ${Number(value).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}`,
+                      "Spesa totale",
+                    ]}
                   />
 
                   <Area
@@ -516,51 +655,71 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
               <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
                 Distribuzione Categorie
               </h3>
+
               <p className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight">
                 Breakdown per tipologia di spesa
               </p>
             </div>
 
             <div className="flex-1 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={85}
-                    paddingAngle={8}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {categoryData.length === 0 ? (
+                <p className="text-sm font-bold text-slate-400">
+                  Nessun dato disponibile
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={85}
+                      paddingAngle={8}
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+
+                    <Tooltip
+                      contentStyle={analyticsTooltipStyle}
+                      labelStyle={analyticsTooltipLabelStyle}
+                      itemStyle={analyticsTooltipItemStyle}
+                      formatter={(value: any) => [
+                        `€ ${Number(value).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}`,
+                        "Importo",
+                      ]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             <div className="space-y-3 pt-4">
-              {categoryData.slice(0, 3).map((c, i) => (
-                <div key={i} className="flex items-center justify-between">
+              {categoryData.slice(0, 3).map((category, index) => (
+                <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: COLORS[i] }}
+                      style={{ backgroundColor: COLORS[index] }}
                     />
+
                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                      {c.name}
+                      {category.name}
                     </span>
                   </div>
 
                   <span className="text-xs font-black text-slate-900 dark:text-slate-100">
                     {stats.total > 0
-                      ? ((c.value / stats.total) * 100).toFixed(0)
+                      ? ((category.value / stats.total) * 100).toFixed(0)
                       : "0"}
                     %
                   </span>
@@ -574,8 +733,9 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
           <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
             <div>
               <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">
-                Progetti con Maggiore Spese
+                Progetti con Maggiori Spese
               </h3>
+
               <p className="text-xs text-slate-400 dark:text-slate-500 font-medium uppercase tracking-tight">
                 Classifica per volume di spesa accumulato
               </p>
@@ -592,6 +752,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
                 <tr className="bg-slate-50/50 dark:bg-slate-800/70 text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 font-black border-b border-slate-100 dark:border-slate-700">
                   <th className="px-8 py-5">Codice Commessa</th>
                   <th className="px-6 py-5">Numero Dettagli</th>
+                  <th className="px-6 py-5">Numero Note</th>
                   <th className="px-6 py-5 text-right">Spesa Totale</th>
                   <th className="px-6 py-5">Stato</th>
                   <th className="px-8 py-5 text-center">Workflow</th>
@@ -599,10 +760,10 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
               </thead>
 
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {projectData.slice(0, 10).map((row, i) => (
+                {projectData.slice(0, 10).map((row, index) => (
                   <tr
-                    key={i}
-                    className="hover:bg-slate-50/30 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer"
+                    key={index}
+                    className="hover:bg-slate-50/30 dark:hover:bg-slate-800/60 transition-colors group"
                   >
                     <td className="px-8 py-6">
                       <span className="text-sm font-black text-[#E85C24] group-hover:underline underline-offset-4">
@@ -614,10 +775,15 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
                       {row.count} dettagli
                     </td>
 
+                    <td className="px-6 py-6 text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {row.noteCount} note
+                    </td>
+
                     <td className="px-6 py-6 text-sm font-black text-slate-900 dark:text-slate-100 text-right">
                       €{" "}
                       {row.total.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
                       })}
                     </td>
 

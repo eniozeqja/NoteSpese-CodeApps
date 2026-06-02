@@ -45,8 +45,8 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
   const isApproved = normalizedStatus === "APPROVATA";
   const isRejected = normalizedStatus === "RIFIUTATA";
 
-  const approveDisabled = !notaSpesaId || isUpdatingNota || isApproved
-  const rejectDisabled = !notaSpesaId || isUpdatingNota || isRejected
+  const approveDisabled = !notaSpesaId || isUpdatingNota || isApproved;
+  const rejectDisabled = !notaSpesaId || isUpdatingNota || isRejected;
 
   function getFormattedValue(record: any, field: string): string {
     return (
@@ -125,9 +125,7 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
 
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
               Ref:{" "}
-              <span className="text-[#E85C24] font-bold">
-                {notaSpesaName}
-              </span>
+              <span className="text-[#E85C24] font-bold">{notaSpesaName}</span>
             </p>
           </div>
 
@@ -192,7 +190,6 @@ const DettagliDrawer: React.FC<DettagliDrawerProps> = ({
               rejectDisabled
                 ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-60 grayscale shadow-none"
                 : "bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                
             }`}
           >
             <XCircle size={18} />

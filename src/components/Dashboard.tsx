@@ -661,15 +661,6 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                         <option>Rifiutata</option>
                       </>
                     )}
-
-                    {activeView === "drafts" && (
-                      <>
-                        <option>In composizione</option>
-                        <option>Bozza</option>
-                      </>
-                    )}
-
-                    {activeView === "completed" && <option>Completata</option>}
                   </select>
 
                   <ChevronRight
