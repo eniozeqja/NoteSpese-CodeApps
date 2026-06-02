@@ -14,7 +14,9 @@ import NotificationBell from "./notifications/NotificationBell";
 
 function getRawContactRoleName(contact: any): string {
   return (
-    contact?.["_cr098_ruolosicurezza_value@OData.Community.Display.V1.FormattedValue"] ??
+    contact?.[
+      "_cr098_ruolosicurezza_value@OData.Community.Display.V1.FormattedValue"
+    ] ??
     contact?.cr098_ruolosicurezzaname ??
     contact?.cr098_ruolosicurezza ??
     ""
@@ -34,15 +36,12 @@ function getAppRoleFromContact(contact: any): "Operatore" | "Dipendente" {
 }
 
 type AppPage = "dashboard" | "analytics" | "settings";
-type NotificationMode = "operatore" | "dipendente";
 
 interface MainLayoutProps {
   children: React.ReactNode;
   activeTab: AppPage;
   onNavigate?: (page: AppPage) => void;
   notificationsEnabled?: boolean;
-  notificationMode?: NotificationMode;
-  dipendenteId?: string | null;
   title?: string;
 }
 
@@ -51,8 +50,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   onNavigate,
   notificationsEnabled = true,
-  notificationMode = "operatore",
-  dipendenteId = null,
   title = "Note Spese - Operatore",
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -196,7 +193,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-700">
-              <NotificationBell mode={notificationMode} notificationsEnabled={notificationsEnabled} dipendenteId={dipendenteId} />
+              <NotificationBell
+                notificationsEnabled={notificationsEnabled}
+                role={currentUser.role as "Operatore" | "Dipendente"}
+              />
 
               <div className="relative">
                 <button
