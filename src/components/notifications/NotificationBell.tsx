@@ -233,7 +233,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
       </button>
 
       {showNotifications && (
-        <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden">
+        <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
@@ -272,14 +272,14 @@ const NotificationBell: React.FC<NotificationBellProps> = ({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 whitespace-normal break-words leading-snug">
                         {note.notificationMessage ??
                           note.dw_name ??
                           "Nuova Nota Spesa"}
                       </p>
 
                       {note.notificationMessage && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 whitespace-normal break-words leading-snug">
                           {note.dw_name ?? "Nota spesa"}
                         </p>
                       )}

@@ -20,6 +20,8 @@ import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { Dw_nota_spesesService } from "../generated/services/Dw_nota_spesesService";
 import type { Dw_nota_speses } from "../generated/models/Dw_nota_spesesModel";
 import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsService";
+import { ContactsService } from "../generated/services/ContactsService";
+import { Dw_notificationtrackersService } from "../generated/services/Dw_notificationtrackersService";
 
 // Integrated Components
 import DettagliDrawer from "./DettagliDrawer";
@@ -309,6 +311,24 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
     setIsDrawerOpen(id !== selectedId);
   };
 
+  const getDipendenteObjectId = async (notaId: string) => {
+    const nota = expenses.find(
+      (expense: any) => expense.dw_nota_speseid === notaId,
+    ) as any;
+
+    const dipendenteContactId = nota?._dw_dipendente_value;
+
+    if (!dipendenteContactId) return null;
+
+    const contactResult = await ContactsService.get(dipendenteContactId);
+
+    const contact =
+      (contactResult as any)?.data ??
+      (contactResult as any)?.value ??
+      contactResult;
+    return contact?.externaluseridentifier ?? null;
+  };
+
   const handleApproveNota = async (id: string) => {
     if (updatingNotaId) return;
 
@@ -324,6 +344,25 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       await Dw_nota_spesesService.update(id, {
         dw_stato: 121950002, // Approvata
       } as any);
+
+      const dipendenteObjectId = await getDipendenteObjectId(id);
+
+      if (dipendenteObjectId) {
+        const notaName =
+          (
+            expenses.find(
+              (expense: any) => expense.dw_nota_speseid === id,
+            ) as any
+          )?.dw_name || "Nota Spesa";
+
+        await Dw_notificationtrackersService.create({
+          dw_name: `La tua Nota Spesa ${notaName} è stata approvata!`,
+          dw_operation: 2,
+          dw_type: 2,
+          dw_visualizedstate: 3,
+          dw_utenteobjectid: dipendenteObjectId,
+        } as any);
+      }
 
       setIsDrawerOpen(false);
       setSelectedId(null);
@@ -361,6 +400,26 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
         dw_stato: 121950003, // Rifiutata
         dw_noteaggiuntive: trimmedReason, // replace with your real column logical name
       } as any);
+
+      const dipendenteObjectId =
+        await getDipendenteObjectId(pendingRejectNotaId);
+
+      if (dipendenteObjectId) {
+        const notaName =
+          (
+            expenses.find(
+              (expense: any) => expense.dw_nota_speseid === pendingRejectNotaId,
+            ) as any
+          )?.dw_name || "Nota Spesa";
+
+        await Dw_notificationtrackersService.create({
+          dw_name: `La Nota Spesa ${notaName} è stata rifiutata`,
+          dw_operation: 2,
+          dw_type: 2,
+          dw_visualizedstate: 2,
+          dw_utenteobjectid: dipendenteObjectId,
+        } as any);
+      }
 
       setRejectModalOpen(false);
       setRejectReason("");
