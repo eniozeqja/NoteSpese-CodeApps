@@ -419,6 +419,12 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                     );
                     return;
                   }
+                  if (selectedStatus === 121950004) {
+                    alert(
+                      "La Nota Spesa è stata completata e non può essere reinviata.",
+                    );
+                    return;
+                  }
 
                   if (
                     selectedStatus !== 121950002 &&

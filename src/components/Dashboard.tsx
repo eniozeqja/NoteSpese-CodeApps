@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState, useMemo, useCallback } from "react";
@@ -15,38 +14,18 @@ import {
   LayoutDashboard,
   FileEdit,
   ArrowUpRight,
+  CheckCircle,
 } from "lucide-react";
-import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { Dw_nota_spesesService } from "../generated/services/Dw_nota_spesesService";
 import type { Dw_nota_speses } from "../generated/models/Dw_nota_spesesModel";
 import { Dw_time_periodsService } from "@/generated/services/Dw_time_periodsService";
 import { ContactsService } from "../generated/services/ContactsService";
 import { Dw_notificationtrackersService } from "../generated/services/Dw_notificationtrackersService";
 
-// Integrated Components
 import DettagliDrawer from "./DettagliDrawer";
 import DettaglioFullView from "./DettaglioFullView";
-import MainLayout from "./MainLayout"; // Import the new shared layout
+import MainLayout from "./MainLayout";
 import HalfMonthPicker from "./HalfMonthPicker";
-
-/**
- * Modern Radix-style Switch Component
- */
-const Switch = ({
-  checked,
-  onCheckedChange,
-}: {
-  checked: boolean;
-  onCheckedChange: (val: boolean) => void;
-}) => (
-  <SwitchPrimitive.Root
-    checked={checked}
-    onCheckedChange={onCheckedChange}
-    className="peer relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E85C24] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[#E85C24] data-[state=unchecked]:bg-slate-200"
-  >
-    <SwitchPrimitive.Thumb className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0" />
-  </SwitchPrimitive.Root>
-);
 
 function parseDateOnly(value: string): Date {
   const [year, month, day] = value.split("-").map(Number);
@@ -101,6 +80,7 @@ function isSamePeriodRange(period: any, range: { start: Date; end: Date }) {
 }
 
 type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
+type DashboardView = "active" | "drafts" | "completed";
 
 interface ExpenseDashboardProps {
   onNavigate?: (page: AppPage) => void;
@@ -116,19 +96,21 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
   const [expenses, setExpenses] = useState<Dw_nota_speses[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showOnlyDrafts, setShowOnlyDrafts] = useState(false);
+  const [activeView, setActiveView] = useState<DashboardView>("active");
   const [statusFilter, setStatusFilter] = useState("Tutti gli stati");
+
   const [periods, setPeriods] = useState<any[]>([]);
   const [selectedPeriodDate, setSelectedPeriodDate] = useState("");
+
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [pendingRejectNotaId, setPendingRejectNotaId] = useState<string | null>(
     null,
   );
 
-  // Navigation & Integration State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [fullDetailId, setFullDetailId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -136,12 +118,18 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, showOnlyDrafts, statusFilter, selectedPeriodDate]);
+  }, [searchTerm, activeView, statusFilter, selectedPeriodDate]);
 
   function getField(record: any, field: string): string {
     return (
       record[`_${field}_value@OData.Community.Display.V1.FormattedValue`] ?? "—"
     );
+  }
+
+  function getStatus(record: any): string {
+    return (
+      record["dw_stato@OData.Community.Display.V1.FormattedValue"] ?? ""
+    ).toUpperCase();
   }
 
   const loadExpenses = useCallback(async () => {
@@ -175,32 +163,19 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
   const stats = useMemo(() => {
     return {
       bozze: expenses.filter((e) => {
-        const stato =
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() ?? "";
+        const stato = getStatus(e);
         return stato === "IN COMPOSIZIONE" || stato === "BOZZA";
       }).length,
       attesa: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "IN ATTESA DI APPROVAZIONE",
+        (e) => getStatus(e) === "IN ATTESA DI APPROVAZIONE",
       ).length,
-      approvate: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "APPROVATA",
-      ).length,
-      rifiutate: expenses.filter(
-        (e) =>
-          (e as any)[
-            "dw_stato@OData.Community.Display.V1.FormattedValue"
-          ]?.toUpperCase() === "RIFIUTATA",
-      ).length,
+      approvate: expenses.filter((e) => getStatus(e) === "APPROVATA").length,
+      rifiutate: expenses.filter((e) => getStatus(e) === "RIFIUTATA").length,
+      completate: expenses.filter((e) => getStatus(e) === "COMPLETATA").length,
     };
   }, [expenses]);
+
+  const activeCount = stats.attesa + stats.approvate + stats.rifiutate;
 
   const filteredExpenses = useMemo(() => {
     const selectedRange = getSelectedHalfMonthRange(selectedPeriodDate);
@@ -225,8 +200,14 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
 
       const isDraftStatus =
         statoUpper === "IN COMPOSIZIONE" || statoUpper === "BOZZA";
+      const isCompletedStatus = statoUpper === "COMPLETATA";
 
-      const matchesToggle = showOnlyDrafts ? isDraftStatus : !isDraftStatus;
+      const matchesView =
+        activeView === "active"
+          ? !isDraftStatus && !isCompletedStatus
+          : activeView === "drafts"
+            ? isDraftStatus
+            : isCompletedStatus;
 
       const statusFilterUpper = statusFilter.toUpperCase();
 
@@ -240,19 +221,20 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
         : true;
 
       return (
-        matchesSearch && matchesToggle && matchesStatusDropdown && matchesPeriod
+        matchesSearch && matchesView && matchesStatusDropdown && matchesPeriod
       );
     });
   }, [
     expenses,
     periods,
     searchTerm,
-    showOnlyDrafts,
+    activeView,
     statusFilter,
     selectedPeriodDate,
   ]);
 
   const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+
   const paginatedExpenses = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
@@ -268,6 +250,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
     for (let page = start; page <= end; page++) {
       pages.push(page);
     }
+
     return pages;
   }, [currentPage, totalPages]);
 
@@ -279,6 +262,8 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
         return "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/50";
       case "RIFIUTATA":
         return "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/50";
+      case "COMPLETATA":
+        return "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700";
       default:
         return "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700";
     }
@@ -295,17 +280,24 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       case "BOZZA":
       case "IN COMPOSIZIONE":
         return <FileEdit size={14} />;
+      case "COMPLETATA":
+        return <CheckCircle size={14} />;
       default:
         return null;
     }
   };
 
   const handleRowClick = (record: any) => {
-    const stato =
-      record[
-        "dw_stato@OData.Community.Display.V1.FormattedValue"
-      ]?.toUpperCase() ?? "";
-    if (stato === "IN COMPOSIZIONE" || stato === "BOZZA") return;
+    const stato = getStatus(record);
+
+    if (
+      stato === "IN COMPOSIZIONE" ||
+      stato === "BOZZA" ||
+      stato === "COMPLETATA"
+    ) {
+      return;
+    }
+
     const id = record.dw_nota_speseid;
     setSelectedId(id === selectedId ? null : id);
     setIsDrawerOpen(id !== selectedId);
@@ -326,6 +318,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       (contactResult as any)?.data ??
       (contactResult as any)?.value ??
       contactResult;
+
     return contact?.externaluseridentifier ?? null;
   };
 
@@ -342,7 +335,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       setUpdatingNotaId(id);
 
       await Dw_nota_spesesService.update(id, {
-        dw_stato: 121950002, // Approvata
+        dw_stato: 121950002,
       } as any);
 
       const dipendenteObjectId = await getDipendenteObjectId(id);
@@ -397,8 +390,8 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       setUpdatingNotaId(pendingRejectNotaId);
 
       await Dw_nota_spesesService.update(pendingRejectNotaId, {
-        dw_stato: 121950003, // Rifiutata
-        dw_noteaggiuntive: trimmedReason, // replace with your real column logical name
+        dw_stato: 121950003,
+        dw_noteaggiuntive: trimmedReason,
       } as any);
 
       const dipendenteObjectId =
@@ -520,7 +513,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
   };
 
   const selectedNota = expenses.find(
-    (expenses: any) => expenses.dw_nota_speseid === selectedId,
+    (expense: any) => expense.dw_nota_speseid === selectedId,
   ) as any;
 
   const selectedNotaStatus =
@@ -533,10 +526,10 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
       notificationsEnabled={notificationsEnabled}
     >
       <div className="p-10 max-w-[1600px] mx-auto space-y-8">
-        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           {[
             {
-              label: "Bozze",
+              label: "In Composizione",
               val: stats.bozze,
               color: "text-slate-400",
               bg: "bg-slate-50",
@@ -563,6 +556,13 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
               bg: "bg-red-50",
               icon: <XCircle size={24} />,
             },
+            {
+              label: "Completate",
+              val: stats.completate,
+              color: "text-slate-500",
+              bg: "bg-slate-100",
+              icon: <CheckCircle size={24} />,
+            },
           ].map((card, i) => (
             <div
               key={i}
@@ -585,73 +585,119 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
             </div>
           ))}
         </section>
-        <section className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row lg:items-center gap-8">
-          <div className="flex items-center gap-6 border-r border-slate-100 dark:border-slate-700 pr-8">
-            <span
-              className={`text-sm font-semibold transition-colors ${
-                !showOnlyDrafts
-                  ? "text-slate-900 dark:text-slate-100"
-                  : "text-slate-400 dark:text-slate-500"
-              }`}
-            >
-              Tutte le Note
-            </span>
 
-            <Switch
-              checked={showOnlyDrafts}
-              onCheckedChange={setShowOnlyDrafts}
-            />
+        <section className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-6">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+            <div className="inline-flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700 w-fit">
+              {[
+                {
+                  key: "active" as DashboardView,
+                  label: "Attive",
+                  count: activeCount,
+                },
+                {
+                  key: "drafts" as DashboardView,
+                  label: "In composizione",
+                  count: stats.bozze,
+                },
+                {
+                  key: "completed" as DashboardView,
+                  label: "Completate",
+                  count: stats.completate,
+                },
+              ].map((tab) => {
+                const isActive = activeView === tab.key;
 
-            <span
-              className={`text-sm font-semibold transition-colors ${
-                showOnlyDrafts
-                  ? "text-slate-900 dark:text-slate-100"
-                  : "text-slate-400 dark:text-slate-500"
-              }`}
-            >
-              Bozze
-            </span>
-          </div>
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      setActiveView(tab.key);
+                      setStatusFilter("Tutti gli stati");
+                      setSelectedId(null);
+                      setIsDrawerOpen(false);
+                    }}
+                    className={`px-5 py-2.5 rounded-xl text-sm font-black transition-all flex items-center gap-2 ${
+                      isActive
+                        ? "bg-white dark:bg-slate-950 text-[#E85C24] shadow-sm"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {tab.label}
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full ${
+                        isActive
+                          ? "bg-orange-50 dark:bg-orange-950/40 text-[#E85C24]"
+                          : "bg-white dark:bg-slate-900 text-slate-400"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="flex flex-1 items-center gap-6">
-            <div className="w-full max-w-[200px]">
-              <div className="relative">
-                <select
-                  className="w-full appearance-none px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option>Tutti gli stati</option>
-                  <option>Approvata</option>
-                  <option>In attesa di approvazione</option>
-                  <option>Rifiutata</option>
-                </select>
+            <div className="flex flex-col lg:flex-row lg:items-center gap-4 flex-1 xl:justify-end">
+              <div className="w-full lg:w-[230px]">
+                <div className="relative">
+                  <select
+                    disabled={activeView !== "active"}
+                    className={`w-full appearance-none px-4 py-2.5 border rounded-xl outline-none text-sm font-medium transition-colors ${
+                      activeView !== "active"
+                        ? "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-70"
+                        : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer focus:border-[#E85C24] hover:bg-slate-100 dark:hover:bg-slate-700"
+                    }`}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option>Tutti gli stati</option>
 
-                <ChevronRight
-                  size={14}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
+                    {activeView === "active" && (
+                      <>
+                        <option>In attesa di approvazione</option>
+                        <option>Approvata</option>
+                        <option>Rifiutata</option>
+                      </>
+                    )}
+
+                    {activeView === "drafts" && (
+                      <>
+                        <option>In composizione</option>
+                        <option>Bozza</option>
+                      </>
+                    )}
+
+                    {activeView === "completed" && <option>Completata</option>}
+                  </select>
+
+                  <ChevronRight
+                    size={14}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              <HalfMonthPicker
+                value={selectedPeriodDate}
+                onChange={setSelectedPeriodDate}
+              />
+
+              <div className="relative w-full lg:w-[320px]">
+                <Search
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Cerca dipendente o commessa..."
+                  className="w-full pl-12 pr-6 py-2.5 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-full focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#E85C24]/10 focus:border-[#E85C24]/30 transition-all outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
-
-            <HalfMonthPicker
-              value={selectedPeriodDate}
-              onChange={setSelectedPeriodDate}
-            />
-          </div>
-
-          <div className="relative w-full max-w-[320px]">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Cerca dipendente o commessa..."
-              className="w-full pl-12 pr-6 py-2.5 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-full focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-[#E85C24]/10 focus:border-[#E85C24]/30 transition-all outline-none text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
           </div>
         </section>
 
@@ -660,7 +706,11 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
             <div className="flex items-center gap-3">
               <LayoutDashboard size={20} className="text-[#E85C24]" />
               <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                Elenco Note Spese
+                {activeView === "active"
+                  ? "Note Spese Attive"
+                  : activeView === "drafts"
+                    ? "Note Spese in Composizione"
+                    : "Note Spese Completate"}
               </h2>
             </div>
 
@@ -689,11 +739,23 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
               </button>
             </div>
           </div>
+
           <div className="overflow-x-auto flex-1">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-80 gap-4 text-slate-400">
                 <Loader2 className="animate-spin text-[#E85C24]" size={40} />
                 <p className="font-medium animate-pulse">Caricamento dati...</p>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center h-80 gap-4 text-center">
+                <p className="text-sm font-bold text-red-500">{error}</p>
+              </div>
+            ) : filteredExpenses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-80 gap-4 text-center">
+                <LayoutDashboard size={40} className="text-slate-300" />
+                <p className="text-sm font-bold text-slate-400">
+                  Nessuna nota spesa trovata.
+                </p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
@@ -706,6 +768,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                     <th className="px-6 py-5">Stato</th>
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                   {paginatedExpenses.map((record: any) => {
                     const id = record.dw_nota_speseid;
@@ -713,15 +776,20 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                       record[
                         "dw_stato@OData.Community.Display.V1.FormattedValue"
                       ] ?? "In Attesa di Approvazione";
-                    const isDraft =
-                      stato.toUpperCase() === "IN COMPOSIZIONE" ||
-                      stato.toUpperCase() === "BOZZA";
+
+                    const statoUpper = stato.toUpperCase();
+
+                    const isReadOnlyRow =
+                      statoUpper === "IN COMPOSIZIONE" ||
+                      statoUpper === "BOZZA" ||
+                      statoUpper === "COMPLETATA";
+
                     return (
                       <tr
                         key={id}
                         onClick={() => handleRowClick(record)}
                         className={`transition-all duration-150 group ${
-                          isDraft
+                          isReadOnlyRow
                             ? "cursor-default opacity-80 italic bg-slate-50/30 dark:bg-slate-800/30"
                             : "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
                         } ${
@@ -739,6 +807,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                         >
                           {record.dw_name ?? "Nota_Spesa"}
                         </td>
+
                         <td className="px-6 py-6">
                           <div className="flex items-center gap-3">
                             <div
@@ -759,6 +828,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                             </span>
                           </div>
                         </td>
+
                         <td className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400 font-medium">
                           {getField(record, "dw_codicedicommessa")}
                         </td>
@@ -766,6 +836,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
                         <td className="px-6 py-6 text-sm text-slate-500 dark:text-slate-400 font-medium">
                           {getField(record, "dw_periodotempo")}
                         </td>
+
                         <td className="px-6 py-6">
                           <span
                             className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border shadow-sm ${getStatusStyle(stato)}`}
@@ -781,6 +852,7 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
               </table>
             )}
           </div>
+
           {filteredExpenses.length > 0 && (
             <div className="px-8 py-5 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-between">
               <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
@@ -864,7 +936,6 @@ const ExpenseDashboard: React.FC<ExpenseDashboardProps> = ({
         </div>
       </div>
 
-      {/* Slide-in Details Drawer */}
       <DettagliDrawer
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
