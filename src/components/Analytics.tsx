@@ -443,7 +443,7 @@ const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigate }) => {
 
   return (
     <MainLayout activeTab="analytics" onNavigate={onNavigate}>
-      <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="space-y-8 max-w-[1400px] ml-28 mt-10 ">
         <div className="flex items-center justify-between bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <div className="space-y-1">
             <h2 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">

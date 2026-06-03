@@ -27,6 +27,8 @@ import DipendenteDettagliDrawer from "./DipendenteDettagliDrawer";
 import DipendenteDettaglioFullView from "./DipendenteDettaglioFullView";
 import HalfMonthPicker from "@/components/HalfMonthPicker";
 
+type AppPage = "dashboard" | "analytics" | "settings";
+
 type PendingDetailUpdate = {
   fields: {
     dw_totalcost: number;
@@ -49,11 +51,15 @@ type NotaSpesa = {
 interface DipendenteHomeProps {
   currentUserName: string;
   currentUserEmail: string;
+  onNavigate?: (page: AppPage) => void;
+  notificationsEnabled?: boolean;
 }
 
 const DipendenteHome: React.FC<DipendenteHomeProps> = ({
   currentUserName,
   currentUserEmail,
+  onNavigate,
+  notificationsEnabled,
 }) => {
   const [loading, setLoading] = useState(true);
   const [noteSpese, setNoteSpese] = useState<NotaSpesa[]>([]);
@@ -220,8 +226,14 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
   }
 
   return (
-    <MainLayout activeTab="dashboard" title="Le mie Note Spese">
-      <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <MainLayout
+      role="dipendente"
+      activeTab="dashboard"
+      title="Le mie Note Spese"
+      onNavigate={onNavigate}
+      notificationsEnabled={notificationsEnabled}
+    >
+      <div className="p-10 max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">

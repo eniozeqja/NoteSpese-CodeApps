@@ -36,6 +36,7 @@ function getAppRoleFromContact(contact: any): "Operatore" | "Dipendente" {
 }
 
 type AppPage = "dashboard" | "analytics" | "settings";
+type AppRole = "operatore" | "dipendente";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -43,6 +44,7 @@ interface MainLayoutProps {
   onNavigate?: (page: AppPage) => void;
   notificationsEnabled?: boolean;
   title?: string;
+  role?: AppRole;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -50,17 +52,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   activeTab,
   onNavigate,
   notificationsEnabled = true,
-  title = "Note Spese - Operatore",
+  title,
+  role = "operatore",
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
-
   const [currentUser, setCurrentUser] = useState({
     fullName: "Utente",
     email: "",
     initials: "U",
-    role: "Dipendente",
+    role: role === "operatore" ? "Operatore" : "Dipendente",
   });
-
   const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
@@ -80,56 +81,106 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             .join("")
             .toUpperCase() || "U";
 
-        let role = "Dipendente";
+        let detectedRole = role === "operatore" ? "Operatore" : "Dipendente";
 
         if (ctx.user.objectId) {
           const contactResult = await ContactsService.getAll({
             filter: `externaluseridentifier eq ${ctx.user.objectId}`,
           });
 
-          role = getAppRoleFromContact(contactResult.data[0]);
+          const contacts = ((contactResult as any)?.data ??
+            (contactResult as any)?.value ??
+            []) as any[];
+
+          if (contacts[0]) {
+            detectedRole = getAppRoleFromContact(contacts[0]);
+          }
         }
 
-        setCurrentUser({ fullName, email, initials, role });
+        setCurrentUser({
+          fullName,
+          email,
+          initials,
+          role: detectedRole,
+        });
       } catch (err) {
         console.error("Errore caricamento contesto:", err);
       }
     };
 
     loadContext();
-  }, []);
+  }, [role]);
 
-  const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "settings", label: "Impostazioni", icon: Settings },
-  ];
+  const effectiveTitle =
+    title ??
+    (role === "dipendente"
+      ? "Note Spese - Dipendente"
+      : "Note Spese - Operatore");
+
+  const menuItems =
+    role === "dipendente"
+      ? [
+          {
+            id: "dashboard" as AppPage,
+            label: "Le mie note",
+            icon: LayoutDashboard,
+          },
+          {
+            id: "analytics" as AppPage,
+            label: "Le mie statistiche",
+            icon: BarChart3,
+          },
+          {
+            id: "settings" as AppPage,
+            label: "Impostazioni",
+            icon: Settings,
+          },
+        ]
+      : [
+          {
+            id: "dashboard" as AppPage,
+            label: "Dashboard",
+            icon: LayoutDashboard,
+          },
+          {
+            id: "analytics" as AppPage,
+            label: "Analytics",
+            icon: BarChart3,
+          },
+          {
+            id: "settings" as AppPage,
+            label: "Impostazioni",
+            icon: Settings,
+          },
+        ];
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex">
       <aside
-        className={`fixed left-0 top-0 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 ease-in-out z-50 flex flex-col ${
-          isMinimized ? "w-20" : "w-64"
+        className={`sticky top-0 h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-sm transition-all duration-300 flex flex-col ${
+          isMinimized ? "w-24" : "w-72"
         }`}
       >
-        <div className="h-20 flex items-center px-6 border-b border-slate-100 dark:border-slate-800 overflow-hidden shrink-0">
-          <div className="w-9 h-9 bg-[#E85C24] rounded-lg flex items-center justify-center text-white shadow-md shrink-0 font-black tracking-tighter">
-            AG
-          </div>
-
-          {!isMinimized && (
-            <div className="ml-3 transition-opacity duration-300">
-              <p className="text-sm font-black tracking-tight leading-none uppercase text-slate-800 dark:text-slate-100">
-                AGIC Group
-              </p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold tracking-widest mt-1 uppercase">
-                Expense Portal
-              </p>
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#E85C24] text-white flex items-center justify-center font-black shadow-lg shadow-orange-500/20">
+              AG
             </div>
-          )}
+
+            {!isMinimized && (
+              <div>
+                <p className="text-sm font-black text-slate-900 dark:text-slate-100">
+                  AGIC Group
+                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  Expense Portal
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -137,157 +188,145 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             return (
               <button
                 key={item.id}
-                onClick={() => onNavigate?.(item.id as AppPage)}
+                type="button"
+                onClick={() => onNavigate?.(item.id)}
                 className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all group ${
                   isActive
                     ? "bg-orange-50 dark:bg-orange-950/30 text-[#E85C24] font-bold"
                     : "text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100"
                 }`}
               >
-                <Icon
-                  size={20}
-                  className={`shrink-0 ${
-                    isActive
-                      ? "text-[#E85C24]"
-                      : "group-hover:scale-110 transition-transform"
-                  }`}
-                />
+                <Icon size={21} className="shrink-0" />
 
                 {!isMinimized && (
-                  <span className="text-sm truncate">{item.label}</span>
+                  <span className="text-sm font-bold">{item.label}</span>
                 )}
               </button>
             );
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800">
           <button
+            type="button"
             onClick={() => setIsMinimized(!isMinimized)}
             className="w-full flex items-center gap-4 px-4 py-3 text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-all"
           >
             {isMinimized ? (
-              <ChevronRight size={20} />
+              <ChevronRight size={21} />
             ) : (
-              <ChevronLeft size={20} />
+              <ChevronLeft size={21} />
             )}
-
             {!isMinimized && (
-              <span className="font-bold text-sm">Riduci Menu</span>
+              <span className="text-sm font-bold">Riduci Menu</span>
             )}
           </button>
         </div>
       </aside>
 
-      <div
-        className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
-          isMinimized ? "pl-20" : "pl-64"
-        }`}
-      >
-        <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-4 flex-1">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-              {title}
+      <main className="flex-1 min-w-0">
+        <header className="sticky top-0 z-40 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-10 py-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-slate-100">
+              {effectiveTitle}
             </h1>
+            <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">
+              {role === "dipendente"
+                ? "Area personale dipendente"
+                : "Area operatore"}
+            </p>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3 pr-6 border-r border-slate-200 dark:border-slate-700">
-              <NotificationBell
-                notificationsEnabled={notificationsEnabled}
-                role={currentUser.role as "Operatore" | "Dipendente"}
-              />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowHelp((prev) => !prev)}
+                className="p-2 text-slate-400 dark:text-slate-500 hover:text-[#E85C24] hover:bg-orange-50 dark:hover:bg-orange-950/30 rounded-lg transition-all"
+                title="Aiuto"
+              >
+                <HelpCircle size={21} />
+              </button>
 
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowHelp((prev) => !prev)}
-                  className="p-2 text-slate-400 dark:text-slate-500 hover:text-[#E85C24] hover:bg-orange-50 dark:hover:bg-orange-950/30 rounded-lg transition-all"
-                  title="Aiuto"
-                >
-                  <HelpCircle size={20} />
-                </button>
+              {showHelp && (
+                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-5 z-50">
+                  <p className="text-sm font-black text-slate-800 dark:text-slate-100 mb-3">
+                    Aiuto rapido
+                  </p>
 
-                {showHelp && (
-                  <div className="absolute right-0 top-12 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
-                      <p className="text-sm font-black text-slate-800 dark:text-slate-100">
-                        Aiuto rapido
+                  {role === "dipendente" ? (
+                    <div className="space-y-3 text-xs text-slate-500 dark:text-slate-400">
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Le mie note:
+                        </span>{" "}
+                        visualizza bozze e note rifiutate da correggere.
                       </p>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-                        Note Spese - Operatore
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Statistiche:
+                        </span>{" "}
+                        controlla importi personali, note in attesa e categorie.
+                      </p>
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Reinvia:
+                        </span>{" "}
+                        le modifiche vengono inviate solo quando clicchi
+                        Reinvia.
                       </p>
                     </div>
-
-                    <div className="p-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
-                      <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          Dashboard
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                          Visualizza, filtra e apri le note spese da
-                          controllare.
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          Approvazione
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                          Puoi approvare o rifiutare solo la Nota Spesa
-                          completa, non le singole voci.
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-100">
-                          Periodo
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                          Il filtro periodo permette di selezionare solo il
-                          giorno 1 o 16 del mese.
-                        </p>
-                      </div>
-
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-700">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                          Supporto
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          Contatta il team AGIC per problemi o richieste.
-                        </p>
-                      </div>
+                  ) : (
+                    <div className="space-y-3 text-xs text-slate-500 dark:text-slate-400">
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Dashboard:
+                        </span>{" "}
+                        visualizza, filtra e apri le note spese da controllare.
+                      </p>
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Approvazione:
+                        </span>{" "}
+                        puoi approvare o rifiutare solo la Nota Spesa completa.
+                      </p>
+                      <p>
+                        <span className="font-black text-slate-700 dark:text-slate-200">
+                          Periodo:
+                        </span>{" "}
+                        il filtro periodo permette di selezionare solo il giorno
+                        1 o 16 del mese.
+                      </p>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div
-              className="flex items-center gap-3 pl-2 group cursor-pointer"
-              title={currentUser.email || currentUser.fullName}
-            >
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-black text-slate-800 dark:text-slate-100 leading-none group-hover:text-[#E85C24] transition-colors">
+            <NotificationBell
+              role={role === "dipendente" ? "Dipendente" : "Operatore"}
+              notificationsEnabled={notificationsEnabled}
+            />
+
+            <div className="hidden md:flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-800">
+              <div className="text-right">
+                <p className="text-sm font-black text-slate-800 dark:text-slate-100">
                   {currentUser.fullName}
                 </p>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                   {currentUser.role}
                 </p>
               </div>
 
-              <div className="w-10 h-10 rounded-full bg-[#E85C24] text-white border-2 border-white dark:border-slate-900 shadow-md ring-1 ring-orange-100 dark:ring-orange-900/40 flex items-center justify-center text-sm font-black transform group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex items-center justify-center text-sm font-black">
                 {currentUser.initials}
               </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 p-10 max-w-[1600px] mx-auto w-full">
-          {children}
-        </main>
-      </div>
+        {children}
+      </main>
     </div>
   );
 };

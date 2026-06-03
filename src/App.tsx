@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import { getContext } from "@microsoft/power-apps/app";
 import OperatorApp from "./OperatoreApp";
-import DipendenteHome from "./components/dipendente/DipendenteHome";
+import DipendenteApp from "./DipendenteApp";
 import { ContactsService } from "./generated/services/ContactsService";
 
 type Theme = "light" | "dark";
@@ -26,7 +26,9 @@ function isOperatorRole(roleName: string) {
 
 function getContactRoleName(contact: any): string {
   return (
-    contact?.["_cr098_ruolosicurezza_value@OData.Community.Display.V1.FormattedValue"] ??
+    contact?.[
+      "_cr098_ruolosicurezza_value@OData.Community.Display.V1.FormattedValue"
+    ] ??
     contact?.cr098_ruolosicurezzaname ??
     contact?.cr098_ruolosicurezza ??
     ""
@@ -82,16 +84,12 @@ function App() {
           filter: `emailaddress1 eq '${safeEmail}'`,
         });
 
-        const contacts =
-          ((contactsResult as any)?.data ??
-            (contactsResult as any)?.value ??
-            []) as any[];
+        const contacts = ((contactsResult as any)?.data ??
+          (contactsResult as any)?.value ??
+          []) as any[];
 
         const contact = contacts[0];
-
-
         const roleName = getContactRoleName(contact);
-        console.log(roleName)
 
         if (isOperatorRole(roleName)) {
           setUserSide("operator");
@@ -111,13 +109,12 @@ function App() {
 
   if (checkingUser) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex items-center justify-center">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-8 shadow-sm text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-orange-100 border-t-[#E85C24] animate-spin mx-auto mb-5" />
-          <p className="text-sm font-black text-slate-800 dark:text-slate-100">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm p-8 text-center">
+          <p className="text-lg font-black text-slate-900 dark:text-slate-100">
             Caricamento profilo utente...
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
+          <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
             Verifica ruolo e autorizzazioni.
           </p>
         </div>
@@ -130,9 +127,11 @@ function App() {
   }
 
   return (
-    <DipendenteHome
+    <DipendenteApp
       currentUserName={currentUser.fullName}
       currentUserEmail={currentUser.email}
+      theme={theme}
+      setTheme={setTheme}
     />
   );
 }

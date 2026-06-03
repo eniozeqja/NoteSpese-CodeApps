@@ -15,9 +15,10 @@ import { getContext } from "@microsoft/power-apps/app";
 import MainLayout from "./MainLayout";
 import * as SwitchPrimitive from "@radix-ui/react-switch";
 
-type AppPage = "dashboard" | "analytics" | "approvals" | "settings";
+type AppPage = "dashboard" | "analytics" | "settings";
 
 type Theme = "light" | "dark";
+type AppRole = "operatore" | "dipendente";
 
 interface SettingsPageProps {
   onNavigate?: (page: AppPage) => void;
@@ -27,6 +28,7 @@ interface SettingsPageProps {
   setNotificationsEnabled: (value: boolean) => void;
   theme: Theme;
   setTheme: (value: Theme) => void;
+  role?: AppRole;
 }
 
 const Switch = ({
@@ -53,6 +55,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   setNotificationsEnabled,
   theme,
   setTheme,
+  role = "operatore",
 }) => {
   const [userInfo, setUserInfo] = useState({
     fullName: "Utente",
@@ -80,11 +83,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     loadUserContext();
   }, []);
 
+  const isDipendente = role === "dipendente";
+
   return (
     <MainLayout
       activeTab="settings"
       onNavigate={onNavigate}
       notificationsEnabled={notificationsEnabled}
+      role={role}
+      title={isDipendente ? "Impostazioni Dipendente" : "Impostazioni"}
     >
       <div className="p-10 max-w-[1400px] mx-auto space-y-8 animate-in fade-in duration-500">
         <div className="relative overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-8">
@@ -100,7 +107,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
                 </p>
 
                 <h2 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">
-                  Impostazioni
+                  {isDipendente ? "Impostazioni Dipendente" : "Impostazioni"}
                 </h2>
 
                 <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-2 max-w-2xl">
@@ -204,79 +211,81 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
           </div>
         </section>
 
-        <section className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 space-y-7">
-            <SectionHeader
-              icon={LayoutList}
-              title="Preferenze Dashboard"
-              subtitle="Visualizzazione elenco"
-              colorClass="bg-blue-50 dark:bg-blue-950/30 text-blue-500 border-blue-100 dark:border-blue-900/40"
-            />
+        {!isDipendente && (
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 space-y-7">
+              <SectionHeader
+                icon={LayoutList}
+                title="Preferenze Dashboard"
+                subtitle="Visualizzazione elenco"
+                colorClass="bg-blue-50 dark:bg-blue-950/30 text-blue-500 border-blue-100 dark:border-blue-900/40"
+              />
 
-            <SettingRow
-              title="Note spese per pagina"
-              description="Numero di righe mostrate nella dashboard operatore."
-              icon={LayoutList}
-              rightContent={
-                <div className="relative">
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="appearance-none pl-4 pr-10 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black text-slate-700 dark:text-slate-100 outline-none hover:border-[#E85C24] focus:border-[#E85C24] focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-950/30 transition-all cursor-pointer"
-                  >
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
+              <SettingRow
+                title="Note spese per pagina"
+                description="Numero di righe mostrate nella dashboard operatore."
+                icon={LayoutList}
+                rightContent={
+                  <div className="relative">
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      className="appearance-none pl-4 pr-10 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-black text-slate-700 dark:text-slate-100 outline-none hover:border-[#E85C24] focus:border-[#E85C24] focus:ring-4 focus:ring-orange-100 dark:focus:ring-orange-950/30 transition-all cursor-pointer"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
 
-                  <ChevronDown
-                    size={16}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    <ChevronDown
+                      size={16}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                    />
+                  </div>
+                }
+              />
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 space-y-7">
+              <SectionHeader
+                icon={Bell}
+                title="Notifiche"
+                subtitle="Avvisi operatore"
+                colorClass="bg-red-50 dark:bg-red-950/30 text-red-500 border-red-100 dark:border-red-900/40"
+              />
+
+              <SettingRow
+                title="Abilita notifiche"
+                description="Ricevi avvisi per nuove note, aggiornamenti e stati importanti."
+                icon={Bell}
+                rightContent={
+                  <Switch
+                    checked={notificationsEnabled}
+                    onCheckedChange={setNotificationsEnabled}
                   />
-                </div>
-              }
-            />
-          </div>
+                }
+              />
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 space-y-7">
-            <SectionHeader
-              icon={Bell}
-              title="Notifiche"
-              subtitle="Avvisi operatore"
-              colorClass="bg-red-50 dark:bg-red-950/30 text-red-500 border-red-100 dark:border-red-900/40"
-            />
-
-            <SettingRow
-              title="Abilita notifiche"
-              description="Ricevi avvisi per nuove note, aggiornamenti e stati importanti."
-              icon={Bell}
-              rightContent={
-                <Switch
-                  checked={notificationsEnabled}
-                  onCheckedChange={setNotificationsEnabled}
-                />
-              }
-            />
-
-            <div className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">
-                Stato notifiche
-              </p>
-
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    notificationsEnabled ? "bg-green-500" : "bg-slate-400"
-                  }`}
-                />
-
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                  {notificationsEnabled ? "Attive" : "Disattivate"}
+              <div className="rounded-2xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">
+                  Stato notifiche
                 </p>
+
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      notificationsEnabled ? "bg-green-500" : "bg-slate-400"
+                    }`}
+                  />
+
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                    {notificationsEnabled ? "Attive" : "Disattivate"}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
     </MainLayout>
   );
