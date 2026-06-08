@@ -12,9 +12,12 @@ import {
   Calendar,
   Coins,
   Trash2,
-  RotateCcw,
+  Save,
 } from "lucide-react";
 import { Dw_detaglinotespesasService } from "@/generated/services/Dw_detaglinotespesasService";
+
+const NOTA_IN_COMPOSIZIONE = 121950000;
+const NOTA_RIFIUTATA = 121950003;
 
 type PendingDetailUpdate = {
   fields: {
@@ -33,8 +36,10 @@ interface DipendenteDettagliDrawerProps {
   onClose: () => void;
   notaSpesaId: string | null;
   notaSpesaName: string;
+  notaSpesaStatus?: number | null;
   rejectionReason?: string;
   onResend: () => void;
+  onSaveDetails?: () => void;
   onSetSelectedDetail: (detailId: string) => void;
   onRefresh?: () => void;
 
@@ -49,8 +54,10 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
   onClose,
   notaSpesaId,
   notaSpesaName,
+  notaSpesaStatus,
   rejectionReason,
   onResend,
+  onSaveDetails,
   onSetSelectedDetail,
   onRefresh,
   pendingDetailUpdates = {},
@@ -65,6 +72,23 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
     Object.keys(pendingDetailUpdates).length > 0 ||
     pendingDetailDeletes.length > 0;
 
+  const isInComposizione = notaSpesaStatus === NOTA_IN_COMPOSIZIONE;
+  const isRifiutata = notaSpesaStatus === NOTA_RIFIUTATA;
+
+  const requestClose = () => {
+    if (hasPendingChanges) {
+      const confirmed = window.confirm(
+        "Hai modifiche ai dettagli non salvate. Se esci ora, le modifiche verranno perse. Vuoi continuare?",
+      );
+
+      if (!confirmed) return;
+
+      onCancelPendingChanges?.();
+    }
+
+    onClose();
+  };
+
   const loadDetails = async () => {
     if (!notaSpesaId || !isOpen) return;
 
@@ -72,7 +96,7 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
       setLoading(true);
 
       const result = await Dw_detaglinotespesasService.getAll({
-        filter: `_dw_notaspesa_value eq '${notaSpesaId}'`,
+        filter: `_dw_notaspesa_value eq ${notaSpesaId}`,
       });
 
       const records = ((result as any)?.data ??
@@ -122,7 +146,9 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
     e.stopPropagation();
 
     const confirmed = window.confirm(
-      "Vuoi segnare questa voce per l'eliminazione? Verrà eliminata definitivamente solo quando clicchi Reinvia Nota Spese.",
+      isInComposizione
+        ? "Vuoi segnare questa voce per l'eliminazione? Verrà eliminata definitivamente solo quando clicchi Salva dettagli."
+        : "Vuoi segnare questa voce per l'eliminazione? Verrà eliminata definitivamente solo quando clicchi Reinvia Nota Spese.",
     );
 
     if (!confirmed) return;
@@ -170,7 +196,7 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
         className={`fixed inset-0 bg-slate-900/20 dark:bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
-        onClick={onClose}
+        onClick={requestClose}
       />
 
       <aside
@@ -189,22 +215,24 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
           </div>
 
           <button
-            onClick={onClose}
+            type="button"
+            onClick={requestClose}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="h-[calc(100%-270px)] overflow-y-auto p-6 space-y-4 custom-scrollbar">
+        <div className="h-[calc(100%-330px)] overflow-y-auto p-6 space-y-4 custom-scrollbar">
           {hasPendingChanges && (
             <div className="rounded-2xl bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#E85C24] mb-1">
                 Modifiche non ancora inviate
               </p>
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                Le modifiche verranno salvate definitivamente solo quando
-                clicchi Reinvia Nota Spese.
+                {isInComposizione
+                  ? "Le modifiche verranno salvate definitivamente quando clicchi Salva dettagli."
+                  : "Le modifiche verranno salvate definitivamente quando clicchi Reinvia Nota Spese."}
               </p>
             </div>
           )}
@@ -251,7 +279,7 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
 
                       {detail.__isPendingUpdate && (
                         <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-[#E85C24]">
-                          Modificato localmente
+                          Modifiche locali
                           {detail.__hasPendingReceipt
                             ? " + nuova ricevuta"
                             : ""}
@@ -261,6 +289,7 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
 
                     <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={(e) =>
                           handleDeleteDetail(e, detail.dw_detaglinotespesaid)
                         }
@@ -309,38 +338,42 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-6 space-y-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
-          <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-4 flex gap-3 items-start">
-            <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">
-                Motivo rifiuto nota
-              </p>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed italic">
-                "
-                {rejectionReason ||
-                  "Nessun motivo specificato dall'approvatore."}
-                "
-              </p>
+          {isRifiutata && (
+            <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 p-4 flex gap-3 items-start">
+              <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-red-500 mb-1">
+                  Motivo rifiuto nota
+                </p>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-relaxed italic">
+                  "
+                  {rejectionReason ||
+                    "Nessun motivo specificato dall'approvatore."}
+                  "
+                </p>
+              </div>
             </div>
-          </div>
-
-          {hasPendingChanges && (
-            <button
-              type="button"
-              onClick={onCancelPendingChanges}
-              className="w-full py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98]"
-            >
-              <RotateCcw size={16} />
-              Cancella modifiche
-            </button>
           )}
+          <button
+            type="button"
+            onClick={onSaveDetails}
+            disabled={!isInComposizione || !hasPendingChanges}
+            className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
+              !isInComposizione || !hasPendingChanges
+                ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none"
+                : "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-500/20"
+            }`}
+          >
+            <Save size={18} />
+            Salva dettagli
+          </button>
 
           <button
             type="button"
             onClick={onResend}
-            disabled={displayDetails.length === 0}
+            disabled={!isRifiutata || displayDetails.length === 0}
             className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
-              displayDetails.length === 0
+              !isRifiutata || displayDetails.length === 0
                 ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none"
                 : "bg-[#E85C24] text-white hover:bg-[#d04a1b] shadow-orange-500/20"
             }`}
@@ -351,7 +384,7 @@ const DipendenteDettagliDrawer: React.FC<DipendenteDettagliDrawerProps> = ({
 
           {displayDetails.length === 0 && (
             <p className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-              Aggiungi almeno una voce prima di reinviare
+              Aggiungi almeno una voce prima di proseguire
             </p>
           )}
         </div>

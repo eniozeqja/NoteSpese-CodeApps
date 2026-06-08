@@ -251,6 +251,37 @@
           "x-ms-read-only": true,
           "maxLength": 200
         },
+        "dw_statoverifica": {
+          "type": "string",
+          "title": "Stato Verifica",
+          "x-ms-dataverse-attribute": "dw_statoverifica",
+          "x-ms-dataverse-type": "PicklistType",
+          "x-ms-schema-name": "dw_StatoVerifica",
+          "enum": [
+            "Verificato",
+            "Non Verificato"
+          ],
+          "x-ms-enum-values": [
+            1,
+            2
+          ],
+          "Color": [
+            null,
+            null
+          ],
+          "x-ms-optionsetmetadataid": "6ce8863b-605f-f111-ab0c-70a8a52bae6d",
+          "x-ms-isGlobal": false,
+          "x-ms-optionsetdisplayname": "Stato Verifica",
+          "x-ms-optionSetType": "Picklist"
+        },
+        "dw_statoverificaname": {
+          "type": "string",
+          "title": "dw_statoverificaname",
+          "x-ms-dataverse-attribute": "dw_statoverificaname",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "dw_statoverificaName",
+          "x-ms-read-only": true
+        },
         "dw_totalcost": {
           "type": "string",
           "title": "Total Cost",

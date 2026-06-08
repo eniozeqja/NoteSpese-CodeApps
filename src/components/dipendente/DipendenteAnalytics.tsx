@@ -422,7 +422,7 @@ const DipendenteAnalytics: React.FC<DipendenteAnalyticsProps> = ({
       notificationsEnabled={notificationsEnabled}
       title="Le mie statistiche"
     >
-      <div className="p-10 max-w-[1500px] mx-auto space-y-8 animate-in fade-in duration-500">
+      <div className="p-10 max-w-[1500px] mx-auto space-y-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#E85C24] mb-2">

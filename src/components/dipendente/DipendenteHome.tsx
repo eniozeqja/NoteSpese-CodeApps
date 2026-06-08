@@ -29,6 +29,12 @@ import HalfMonthPicker from "@/components/HalfMonthPicker";
 
 type AppPage = "dashboard" | "analytics" | "settings";
 
+const NOTA_IN_COMPOSIZIONE = 121950000;
+const NOTA_IN_ATTESA = 121950001;
+const NOTA_RIFIUTATA = 121950003;
+
+const DETTAGLIO_VERIFICATO = 1;
+
 type PendingDetailUpdate = {
   fields: {
     dw_totalcost: number;
@@ -46,6 +52,7 @@ type NotaSpesa = {
   dw_name?: string;
   createdon?: string;
   dw_stato?: number;
+  dw_noteaggiuntive?: string;
 };
 
 interface DipendenteHomeProps {
@@ -87,6 +94,10 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
   >("ALL");
   const [periodFilter, setPeriodFilter] = useState("");
 
+  const hasPendingChanges =
+    Object.keys(pendingDetailUpdates).length > 0 ||
+    pendingDetailDeletes.length > 0;
+
   const loadMyNoteSpese = async () => {
     try {
       setLoading(true);
@@ -118,7 +129,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
       }
 
       const result = await Dw_nota_spesesService.getAll({
-        filter: `_dw_dipendente_value eq ${contactId} and (dw_stato eq 121950003 or dw_stato eq 121950000)`,
+        filter: `_dw_dipendente_value eq ${contactId} and (dw_stato eq ${NOTA_RIFIUTATA} or dw_stato eq ${NOTA_IN_COMPOSIZIONE})`,
       });
 
       const records = ((result as any)?.data ??
@@ -188,6 +199,161 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
       return matchesSearch && matchesStatus && matchesPeriod;
     });
   }, [noteSpese, searchTerm, statusFilter, periodFilter]);
+
+  const clearPendingChanges = () => {
+    setPendingDetailUpdates({});
+    setPendingDetailDeletes([]);
+  };
+
+  const clearSelectedNotaState = () => {
+    setPendingDetailUpdates({});
+    setPendingDetailDeletes([]);
+    setIsDrawerOpen(false);
+    setSelectedId(null);
+    setSelectedName("");
+    setSelectedStatus(null);
+    setSelectedRejectionReason("");
+  };
+
+  const savePendingDetailChanges = async ({
+    markUpdatedAsVerified,
+  }: {
+    markUpdatedAsVerified: boolean;
+  }) => {
+    for (const detailId of pendingDetailDeletes) {
+      await Dw_detaglinotespesasService.delete(detailId);
+    }
+
+    for (const [detailId, update] of Object.entries(pendingDetailUpdates)) {
+      await Dw_detaglinotespesasService.update(detailId, {
+        ...(update.fields as any),
+        ...(markUpdatedAsVerified
+          ? { dw_statoverifica: DETTAGLIO_VERIFICATO }
+          : {}),
+      } as any);
+
+      if (update.receiptFile) {
+        await Dw_detaglinotespesasService.upload(
+          detailId,
+          "dw_receipt",
+          update.receiptFile,
+          update.receiptFile.name,
+        );
+      }
+    }
+  };
+
+  const loadSelectedDetails = async () => {
+    if (!selectedId) return [];
+
+    const result = await Dw_detaglinotespesasService.getAll({
+      filter: `_dw_notaspesa_value eq ${selectedId}`,
+    });
+
+    return ((result as any)?.data ?? (result as any)?.value ?? []) as any[];
+  };
+
+  const handleSaveDetailsInComposizione = async () => {
+    if (!selectedId) return;
+
+    if (selectedStatus !== NOTA_IN_COMPOSIZIONE) {
+      alert("Puoi usare Salva dettagli solo per note in composizione.");
+      return;
+    }
+
+    if (!hasPendingChanges) {
+      alert("Non ci sono modifiche da salvare.");
+      return;
+    }
+
+    try {
+      await savePendingDetailChanges({ markUpdatedAsVerified: false });
+
+      clearPendingChanges();
+      setIsDrawerOpen(false);
+
+      await loadMyNoteSpese();
+
+      alert("Dettagli salvati correttamente.");
+    } catch (err) {
+      console.error("[DipendenteHome] Save details failed:", err);
+      alert("Errore durante il salvataggio dei dettagli.");
+    }
+  };
+
+  const handleResendRejectedNota = async () => {
+    if (!selectedId) return;
+
+    try {
+      const ctx = await getContext();
+      const currentUserObjectId = ctx.user.objectId;
+
+      if (!currentUserObjectId) {
+        alert("Impossibile identificare l'utente corrente.");
+        return;
+      }
+
+      if (selectedStatus !== NOTA_RIFIUTATA) {
+        alert("Puoi reinviare solo una Nota Spesa rifiutata.");
+        return;
+      }
+
+      const currentDetails = await loadSelectedDetails();
+
+      const activeDetails = currentDetails.filter(
+        (detail: any) =>
+          !pendingDetailDeletes.includes(detail.dw_detaglinotespesaid),
+      );
+
+      if (activeDetails.length === 0) {
+        alert("Non puoi reinviare una Nota Spesa senza dettagli.");
+        return;
+      }
+
+      const editedDetailIds = new Set(Object.keys(pendingDetailUpdates));
+
+      const notEditedDetails = activeDetails.filter(
+        (detail: any) => !editedDetailIds.has(detail.dw_detaglinotespesaid),
+      );
+
+      if (notEditedDetails.length > 0) {
+        const confirmed = window.confirm(
+          `Hai modificato ${editedDetailIds.size} dettagli su ${activeDetails.length}. Ci sono ancora ${notEditedDetails.length} dettagli non modificati. Vuoi comunque reinviare la Nota Spesa?`,
+        );
+
+        if (!confirmed) return;
+      }
+
+      if (hasPendingChanges) {
+        await savePendingDetailChanges({ markUpdatedAsVerified: true });
+        clearPendingChanges();
+      }
+
+      await Dw_nota_spesesService.update(selectedId, {
+        dw_stato: NOTA_IN_ATTESA,
+        dw_noteaggiuntive: null,
+      } as any);
+
+      await Dw_notificationtrackersService.create({
+        dw_name: `Aggiornamento! ${
+          selectedName || "Nota Spesa"
+        } reinviata per approvazione`,
+        dw_operation: 2,
+        dw_type: 2,
+        dw_visualizedstate: 1,
+        dw_utenteobjectid: currentUserObjectId,
+      } as any);
+
+      clearSelectedNotaState();
+
+      await loadMyNoteSpese();
+
+      alert("Nota Spesa reinviata correttamente.");
+    } catch (err) {
+      console.error("[DipendenteHome] Reinvia failed:", err);
+      alert("Errore durante il reinvio della Nota Spesa.");
+    }
+  };
 
   if (selectedDetailId) {
     return (
@@ -282,11 +448,11 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                     onChange={(e) => setStatusFilter(e.target.value as any)}
                     className="pl-10 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800 border-transparent rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 outline-none focus:ring-2 focus:ring-orange-500/10 transition-all cursor-pointer appearance-none w-full"
                   >
-                    <option value="ALL" disabled>
-                      Stato
+                    <option value="ALL">Tutti gli stati</option>
+                    <option value={String(NOTA_IN_COMPOSIZIONE)}>
+                      Composizione
                     </option>
-                    <option value="121950000">Composizione</option>
-                    <option value="121950003">Rifiutata</option>
+                    <option value={String(NOTA_RIFIUTATA)}>Rifiutata</option>
                   </select>
                   <ChevronDown
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -362,7 +528,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                 Da Correggere
               </p>
               <p className="text-xl font-black text-slate-800 dark:text-slate-100">
-                {noteSpese.filter((n) => n.dw_stato === 121950003).length}
+                {noteSpese.filter((n) => n.dw_stato === NOTA_RIFIUTATA).length}
               </p>
             </div>
           </div>
@@ -395,9 +561,11 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
               onClose={() => setIsDrawerOpen(false)}
               notaSpesaId={selectedId}
               notaSpesaName={selectedName}
+              notaSpesaStatus={selectedStatus}
               rejectionReason={selectedRejectionReason}
               pendingDetailUpdates={pendingDetailUpdates}
               pendingDetailDeletes={pendingDetailDeletes}
+              onSaveDetails={handleSaveDetailsInComposizione}
               onLocalDelete={(detailId) => {
                 setPendingDetailDeletes((prev) =>
                   prev.includes(detailId) ? prev : [...prev, detailId],
@@ -413,94 +581,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                 setPendingDetailUpdates({});
                 setPendingDetailDeletes([]);
               }}
-              onResend={async () => {
-                if (!selectedId) return;
-
-                try {
-                  const ctx = await getContext();
-                  const currentUserObjectId = ctx.user.objectId;
-
-                  if (!currentUserObjectId) {
-                    alert("Impossibile identificare l'utente corrente.");
-                    return;
-                  }
-
-                  if (selectedStatus === 121950000) {
-                    alert(
-                      "La Nota Spesa è ancora in composizione. Nessun reinvio necessario.",
-                    );
-                    return;
-                  }
-                  if (selectedStatus === 121950004) {
-                    alert(
-                      "La Nota Spesa è stata completata e non può essere reinviata.",
-                    );
-                    return;
-                  }
-
-                  if (
-                    selectedStatus !== 121950002 &&
-                    selectedStatus !== 121950003
-                  ) {
-                    alert(
-                      "Questa Nota Spesa non può essere reinviata nello stato corrente.",
-                    );
-                    return;
-                  }
-
-                  for (const detailId of pendingDetailDeletes) {
-                    await Dw_detaglinotespesasService.delete(detailId);
-                  }
-
-                  for (const [detailId, update] of Object.entries(
-                    pendingDetailUpdates,
-                  )) {
-                    await Dw_detaglinotespesasService.update(
-                      detailId,
-                      update.fields as any,
-                    );
-
-                    if (update.receiptFile) {
-                      await Dw_detaglinotespesasService.upload(
-                        detailId,
-                        "dw_receipt",
-                        update.receiptFile,
-                        update.receiptFile.name,
-                      );
-                    }
-                  }
-
-                  await Dw_nota_spesesService.update(selectedId, {
-                    dw_stato: 121950001,
-                    dw_noteaggiuntive: null,
-                  } as any);
-
-                  await Dw_notificationtrackersService.create({
-                    dw_name: `Aggiornamento! ${
-                      selectedName || "Nota Spesa"
-                    } reinviata per approvazione`,
-                    dw_operation: 2,
-                    dw_type: 2,
-                    dw_visualizedstate: 1,
-                    dw_utenteobjectid: currentUserObjectId,
-                  } as any);
-
-                  setPendingDetailUpdates({});
-                  setPendingDetailDeletes([]);
-                  setIsDrawerOpen(false);
-                  setSelectedId(null);
-                  setSelectedName("");
-                  setSelectedStatus(null);
-                  setSelectedRejectionReason("");
-
-                  await loadMyNoteSpese();
-
-                  alert("Nota Spesa reinviata correttamente.");
-                } catch (err) {
-                  console.error("[DipendenteHome] Reinvia failed:", err);
-                  alert("Errore durante il reinvio della Nota Spesa.");
-                }
-              }}
+              onResend={handleResendRejectedNota}
               onSetSelectedDetail={(detailId) => {
                 setSelectedDetailId(detailId);
                 setIsDrawerOpen(false);
@@ -515,9 +596,7 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                   setSelectedName(nota.dw_name || "Nota Spesa");
                   setSelectedStatus(nota.dw_stato ?? null);
                   setIsDrawerOpen(true);
-                  setSelectedRejectionReason(
-                    (nota as any).dw_noteaggiuntive || "",
-                  );
+                  setSelectedRejectionReason(nota.dw_noteaggiuntive || "");
                 }}
                 className="group relative text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 hover:border-[#E85C24] hover:shadow-xl hover:shadow-orange-500/10 transition-all duration-300 flex flex-col justify-between min-h-[180px] overflow-hidden"
               >
@@ -525,12 +604,12 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
                   <div className="flex items-start justify-between mb-4">
                     <div
                       className={`p-2.5 rounded-xl ${
-                        nota.dw_stato === 121950003
+                        nota.dw_stato === NOTA_RIFIUTATA
                           ? "bg-red-50 text-red-500 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/50"
                           : "bg-slate-50 text-slate-400 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"
                       }`}
                     >
-                      {nota.dw_stato === 121950003 ? (
+                      {nota.dw_stato === NOTA_RIFIUTATA ? (
                         <AlertCircle size={20} />
                       ) : (
                         <Clock size={20} />
@@ -539,12 +618,12 @@ const DipendenteHome: React.FC<DipendenteHomeProps> = ({
 
                     <span
                       className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm ${
-                        nota.dw_stato === 121950003
+                        nota.dw_stato === NOTA_RIFIUTATA
                           ? "bg-red-50 text-red-600 border-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400"
                           : "bg-orange-50 text-orange-700 border-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400"
                       }`}
                     >
-                      {nota.dw_stato === 121950003
+                      {nota.dw_stato === NOTA_RIFIUTATA
                         ? "Rifiutata"
                         : "In Composizione"}
                     </span>

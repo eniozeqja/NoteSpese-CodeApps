@@ -17,6 +17,17 @@ import {
 import { Dw_detaglinotespesasService } from "@/generated/services/Dw_detaglinotespesasService";
 import { useAttachment } from "@/hooks/useAttachment";
 
+const CATEGORY_VITTO = "121950000";
+const CATEGORY_ALLOGGIO = "121950001";
+const CATEGORY_TRASPORTO = "121950002";
+const CATEGORY_CARBURANTE = "121950003";
+const CATEGORY_RAPPRESENTANZA = "121950004";
+const CATEGORY_ALTRO = "121950005";
+
+const CURRENCY_EUR = "121950000";
+const CURRENCY_USD = "121950001";
+const CURRENCY_GBP = "121950002";
+
 interface PendingDetailUpdate {
   fields: {
     dw_totalcost: number;
@@ -37,17 +48,12 @@ interface DipendenteDettaglioFullViewProps {
   onLocalDelete?: (detailId: string) => void;
 }
 
-/**
- * Enhanced Employee Detail View
- * Refined layout with a two-column grid for better information hierarchy.
- * Maintains all original functional logic for Dataverse updates and receipt uploads.
- * Added loading states for saving and deleting operations.
- */
 const DipendenteDettaglioFullView: React.FC<
   DipendenteDettaglioFullViewProps
 > = ({ detailId, onBack, onSaved, onLocalSave, onLocalDelete }) => {
   const [detail, setDetail] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     totalCost: "",
     category: "",
@@ -56,11 +62,14 @@ const DipendenteDettaglioFullView: React.FC<
     merchantName: "",
     additionalNotes: "",
   });
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [newReceiptFile, setNewReceiptFile] = useState<File | null>(null);
   const [newReceiptPreviewUrl, setNewReceiptPreviewUrl] = useState<
     string | null
   >(null);
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -74,10 +83,12 @@ const DipendenteDettaglioFullView: React.FC<
     const loadDetail = async () => {
       try {
         setLoading(true);
+
         const result = await Dw_detaglinotespesasService.get(detailId);
         const record = (result as any)?.data ?? (result as any)?.value ?? null;
 
         setDetail(record);
+
         setFormData({
           totalCost: String(record?.dw_totalcost ?? ""),
           category: String(record?.dw_categoriadispesa ?? ""),
@@ -89,13 +100,32 @@ const DipendenteDettaglioFullView: React.FC<
           additionalNotes: record?.dw_additionalnotes || "",
         });
       } catch (err) {
-        console.error("Failed to load detail: ", err);
+        console.error(
+          "[DipendenteDettaglioFullView] Failed to load detail:",
+          err,
+        );
       } finally {
         setLoading(false);
       }
     };
+
     loadDetail();
   }, [detailId]);
+
+  useEffect(() => {
+    return () => {
+      if (newReceiptPreviewUrl) {
+        URL.revokeObjectURL(newReceiptPreviewUrl);
+      }
+    };
+  }, [newReceiptPreviewUrl]);
+
+  const getCurrencySuffix = () => {
+    if (formData.currency === CURRENCY_EUR) return "EUR";
+    if (formData.currency === CURRENCY_USD) return "USD";
+    if (formData.currency === CURRENCY_GBP) return "GBP";
+    return "VAL";
+  };
 
   const handleSave = async () => {
     try {
@@ -106,7 +136,14 @@ const DipendenteDettaglioFullView: React.FC<
         !formData.totalCost ||
         !formData.transactionDate
       ) {
-        alert("Compila tutti i campi obbligatori");
+        alert("Compila tutti i campi obbligatori.");
+        return;
+      }
+
+      const numericTotal = Number(formData.totalCost);
+
+      if (Number.isNaN(numericTotal) || numericTotal <= 0) {
+        alert("Inserisci un importo valido.");
         return;
       }
 
@@ -114,7 +151,7 @@ const DipendenteDettaglioFullView: React.FC<
 
       onLocalSave?.(detailId, {
         fields: {
-          dw_totalcost: Number(formData.totalCost),
+          dw_totalcost: numericTotal,
           dw_categoriadispesa: String(formData.category),
           dw_currency: String(formData.currency),
           dw_transactiondate: formData.transactionDate,
@@ -125,12 +162,13 @@ const DipendenteDettaglioFullView: React.FC<
       });
 
       alert(
-        "Modifiche salvate localmente. Verranno inviate con Reinvia Nota Spese.",
+        "Modifiche salvate localmente. Torna alla lista dettagli e usa Salva dettagli o Reinvia Nota Spese per inviarle a Dataverse.",
       );
+
       onSaved?.();
       onBack();
     } catch (err) {
-      console.error("Local save failed: ", err);
+      console.error("[DipendenteDettaglioFullView] Local save failed:", err);
       alert("Errore durante il salvataggio locale.");
     } finally {
       setSaving(false);
@@ -139,7 +177,7 @@ const DipendenteDettaglioFullView: React.FC<
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
-      "Sei sicuro di voler eliminare questa voce di spesa? Verrà eliminata definitivamente solo quando clicchi Reinvia Nota Spese.",
+      "Sei sicuro di voler eliminare questa voce di spesa? Verrà eliminata definitivamente solo quando userai Salva dettagli o Reinvia Nota Spese.",
     );
 
     if (!confirmed) return;
@@ -150,13 +188,13 @@ const DipendenteDettaglioFullView: React.FC<
       onLocalDelete?.(detailId);
 
       alert(
-        "Voce marcata per eliminazione. Verrà eliminata con Reinvia Nota Spese.",
+        "Voce marcata per eliminazione. Verrà eliminata quando userai Salva dettagli o Reinvia Nota Spese.",
       );
 
       onSaved?.();
       onBack();
     } catch (err) {
-      console.log("Local delete failed: ", err);
+      console.error("[DipendenteDettaglioFullView] Local delete failed:", err);
       alert("Errore durante la preparazione dell'eliminazione.");
     } finally {
       setDeleting(false);
@@ -165,9 +203,13 @@ const DipendenteDettaglioFullView: React.FC<
 
   const handleReceiptChange = (file: File | null) => {
     if (!file) return;
+
+    if (newReceiptPreviewUrl) {
+      URL.revokeObjectURL(newReceiptPreviewUrl);
+    }
+
     setNewReceiptFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setNewReceiptPreviewUrl(previewUrl);
+    setNewReceiptPreviewUrl(URL.createObjectURL(file));
   };
 
   if (loading) {
@@ -189,10 +231,13 @@ const DipendenteDettaglioFullView: React.FC<
         <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-900 flex items-center justify-center text-slate-400">
           <FileText size={32} />
         </div>
+
         <p className="text-slate-500 dark:text-slate-400 font-bold">
           Dettaglio non trovato.
         </p>
+
         <button
+          type="button"
           onClick={onBack}
           className="px-6 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all shadow-sm"
         >
@@ -207,10 +252,10 @@ const DipendenteDettaglioFullView: React.FC<
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans">
-      {/* Elegant Header */}
       <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-8 flex items-center justify-between sticky top-0 z-40 shadow-sm">
         <div className="flex items-center gap-5">
           <button
+            type="button"
             onClick={onBack}
             className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 transition-colors group"
           >
@@ -225,10 +270,12 @@ const DipendenteDettaglioFullView: React.FC<
               <h1 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight">
                 Modifica Voce
               </h1>
+
               <span className="px-2 py-0.5 rounded-md bg-orange-50 dark:bg-orange-950/30 text-[#E85C24] text-[10px] font-black uppercase tracking-wider">
                 Dettaglio
               </span>
             </div>
+
             <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">
               {detail.dw_name || "Dettaglio Spesa"}
             </p>
@@ -274,7 +321,6 @@ const DipendenteDettaglioFullView: React.FC<
 
       <main className="p-8 lg:p-12 max-w-[1400px] mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Receipt Preview */}
           <div className="lg:col-span-7">
             <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm flex flex-col">
               <div className="px-8 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
@@ -282,10 +328,12 @@ const DipendenteDettaglioFullView: React.FC<
                   <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center text-[#E85C24]">
                     <Upload size={18} />
                   </div>
+
                   <div>
                     <h2 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
                       Ricevuta
                     </h2>
+
                     <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 truncate max-w-[200px]">
                       {previewName || "Nessun file selezionato"}
                     </p>
@@ -304,6 +352,7 @@ const DipendenteDettaglioFullView: React.FC<
                 />
 
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
                 >
@@ -353,22 +402,22 @@ const DipendenteDettaglioFullView: React.FC<
             </section>
           </div>
 
-          {/* Right Column: Form Data */}
           <div className="lg:col-span-5 space-y-8">
             <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-1.5 h-6 bg-[#E85C24] rounded-full" />
+
                 <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">
                   Informazioni Spesa
                 </h2>
               </div>
 
               <div className="space-y-6">
-                {/* Total Cost Input */}
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                     <Coins size={12} /> Importo Totale
                   </label>
+
                   <div className="relative">
                     <input
                       type="number"
@@ -380,21 +429,22 @@ const DipendenteDettaglioFullView: React.FC<
                           totalCost: e.target.value,
                         }))
                       }
-                      className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950 px-5 py-4 text-base font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-[#E85C24] focus:ring-4 focus:ring-orange-500/5 transition-all"
+                      className="w-full rounded-2xl border border-[#E85C24] bg-transparent px-5 py-4 pr-24 text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#E85C24]/30"
                       placeholder="0.00"
                     />
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-300 pointer-events-none">
-                      VAL
+
+                    <div className="absolute right-5 top-1/2 -translate-y-1/2 font-black text-slate-400 pointer-events-none text-xs uppercase tracking-widest">
+                      {getCurrencySuffix()}
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Category Select */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                       <Tag size={12} /> Categoria
                     </label>
+
                     <select
                       value={formData.category}
                       onChange={(e) =>
@@ -408,20 +458,22 @@ const DipendenteDettaglioFullView: React.FC<
                       <option value="" disabled>
                         Scegli...
                       </option>
-                      <option value="121950000">Vitto</option>
-                      <option value="121950001">Alloggio</option>
-                      <option value="121950002">Trasporto</option>
-                      <option value="121950003">Carburante</option>
-                      <option value="121950004">Rappresentanza</option>
-                      <option value="121950005">Altro</option>
+                      <option value={CATEGORY_VITTO}>Vitto</option>
+                      <option value={CATEGORY_ALLOGGIO}>Alloggio</option>
+                      <option value={CATEGORY_TRASPORTO}>Trasporto</option>
+                      <option value={CATEGORY_CARBURANTE}>Carburante</option>
+                      <option value={CATEGORY_RAPPRESENTANZA}>
+                        Rappresentanza
+                      </option>
+                      <option value={CATEGORY_ALTRO}>Altro</option>
                     </select>
                   </div>
 
-                  {/* Currency Select */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                       <Coins size={12} /> Valuta
                     </label>
+
                     <select
                       value={formData.currency}
                       onChange={(e) =>
@@ -435,19 +487,19 @@ const DipendenteDettaglioFullView: React.FC<
                       <option value="" disabled>
                         Valuta...
                       </option>
-                      <option value="121950000">EUR</option>
-                      <option value="121950001">USD</option>
-                      <option value="121950002">GBP</option>
+                      <option value={CURRENCY_EUR}>EUR</option>
+                      <option value={CURRENCY_USD}>USD</option>
+                      <option value={CURRENCY_GBP}>GBP</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Transaction Date */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                       <Calendar size={12} /> Data
                     </label>
+
                     <input
                       type="date"
                       value={formData.transactionDate}
@@ -461,11 +513,11 @@ const DipendenteDettaglioFullView: React.FC<
                     />
                   </div>
 
-                  {/* Merchant Name */}
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                       <Building2 size={12} /> Merchant
                     </label>
+
                     <input
                       value={formData.merchantName}
                       onChange={(e) =>
@@ -480,11 +532,11 @@ const DipendenteDettaglioFullView: React.FC<
                   </div>
                 </div>
 
-                {/* Additional Notes */}
                 <div className="space-y-2 pt-2">
                   <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">
                     <StickyNote size={12} /> Note Aggiuntive
                   </label>
+
                   <textarea
                     value={formData.additionalNotes}
                     onChange={(e) =>
@@ -501,16 +553,17 @@ const DipendenteDettaglioFullView: React.FC<
               </div>
             </section>
 
-            {/* Audit Info / Non-editable Summary */}
             <div className="bg-slate-900 dark:bg-slate-800 rounded-3xl p-8 text-white shadow-xl shadow-slate-200 dark:shadow-none">
               <h3 className="font-black text-xs uppercase tracking-widest text-[#E85C24] mb-4">
                 Informazioni Sistema
               </h3>
+
               <div className="space-y-4">
                 <div className="flex justify-between items-center pb-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                     Creato il
                   </span>
+
                   <span className="text-sm font-bold">
                     {detail.createdon
                       ? new Date(detail.createdon).toLocaleDateString()

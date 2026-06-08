@@ -17,6 +17,11 @@ export const Dw_detaglinotespesasdw_currency = {
   121950002: 'ALL'
 } as const;
 export type Dw_detaglinotespesasdw_currency = keyof typeof Dw_detaglinotespesasdw_currency;
+export const Dw_detaglinotespesasdw_statoverifica = {
+  1: 'Verificato',
+  2: 'NonVerificato'
+} as const;
+export type Dw_detaglinotespesasdw_statoverifica = keyof typeof Dw_detaglinotespesasdw_statoverifica;
 export const Dw_detaglinotespesasstatecode = {
   0: 'Active',
   1: 'Inactive'
@@ -37,6 +42,7 @@ export interface Dw_detaglinotespesasBase {
   dw_merchantname?: string;
   dw_name: string;
   "dw_NotaSpesa@odata.bind"?: string;
+  dw_statoverifica?: Dw_detaglinotespesasdw_statoverifica;
   dw_totalcost?: number;
   dw_transactiondate?: string;
   importsequencenumber?: number;
@@ -59,6 +65,7 @@ export interface Dw_detaglinotespesas extends Dw_detaglinotespesasBase {
   dw_notaspesaname?: string;
   dw_receipt: string;
   dw_receipt_name?: string;
+  dw_statoverificaname?: string;
   modifiedbyname?: string;
   modifiedbyyominame: string;
   modifiedon?: string;

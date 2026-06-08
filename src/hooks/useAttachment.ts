@@ -48,7 +48,7 @@ export function useAttachment(record: Dw_detaglinotespesas | null) {
     setLoading(true);
 
     Dw_detaglinotespesasService.downloadReceipt(id)
-      .then(async (res) => {
+      .then(async (res: any) => {
         if (cancelled) return;
 
         const raw = (res as any)?.data ?? (res as any)?.value;
@@ -57,30 +57,31 @@ export function useAttachment(record: Dw_detaglinotespesas | null) {
           throw new Error("No file data returned.");
         }
 
-let bytes: Uint8Array
- 
-    if (raw instanceof Uint8Array) {
-      bytes = raw
-    } else if (raw instanceof ArrayBuffer) {
-      bytes = new Uint8Array(raw)
-    } else if (raw instanceof Blob) {
-      bytes = new Uint8Array(await raw.arrayBuffer())
-    } else if (ArrayBuffer.isView(raw)) {
-      bytes = new Uint8Array(raw.buffer as ArrayBuffer)
-    } else {
-      return
-    }
- 
-    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: getMimeType(fileName) });
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setAttachmentUrl(reader.result as string)
-    }
-    reader.readAsDataURL(blob)
-  })
- 
+        let bytes: Uint8Array;
 
-      .catch((err) => {
+        if (raw instanceof Uint8Array) {
+          bytes = raw;
+        } else if (raw instanceof ArrayBuffer) {
+          bytes = new Uint8Array(raw);
+        } else if (raw instanceof Blob) {
+          bytes = new Uint8Array(await raw.arrayBuffer());
+        } else if (ArrayBuffer.isView(raw)) {
+          bytes = new Uint8Array(raw.buffer as ArrayBuffer);
+        } else {
+          return;
+        }
+
+        const blob = new Blob([bytes.buffer as ArrayBuffer], {
+          type: getMimeType(fileName),
+        });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAttachmentUrl(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      })
+
+      .catch((err: any) => {
         console.error("Download receipt failed:", err);
         if (!cancelled) {
           setAttachmentUrl(null);
